@@ -10,3 +10,7 @@ akshare>=1.16.0
 baostock>=0.8.9
 mootdx>=0.10.0
 python-dotenv>=1.0.0
+
+# Built-in capability: EquityScope / 个股深研.
+# This installs capabilities/tradingagents_astock and its pyproject dependencies.
+-e ./capabilities/tradingagents_astock

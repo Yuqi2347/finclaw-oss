@@ -163,6 +163,8 @@ TAVILY_API_KEY=
 python -m pip install -r requirements.txt
 ```
 
+这会安装 FinClaw 后端、内嵌 FinDataHub，以及内置的个股深研 / EquityScope 能力依赖。主线雷达 / ThemeRadar 和产业链透视 / ChainLens 属于可选外部能力，需在安装对应实现后再启用。
+
 ### 3. 启动后端
 
 ```powershell

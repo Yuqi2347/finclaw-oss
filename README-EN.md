@@ -72,9 +72,9 @@ The current capability layer includes:
 
 | Capability | Role |
 | --- | --- |
-| EquityScope / 个股深研 (`tradingagents_astock`) | Multi-agent A-share single-company research capability that simulates professional investment research roles, debates a target company, and outputs an equity research report. |
-| ThemeRadar / 主线雷达 (`bettafish`) | Market theme, narrative structure, and opportunity discovery capability that studies macro fundamentals and market direction to identify short- and long-term market themes. |
-| ChainLens / 产业链透视 (`tradinggraph`) | Industry-chain graph, bottleneck, and structural opportunity analysis capability that studies industrial-chain nodes, bottleneck intensity, and market attention to discover potential investment opportunities. |
+| EquityScope / 个股深研 | Multi-agent A-share single-company research capability that simulates professional investment research roles, debates a target company, and outputs an equity research report. |
+| ThemeRadar / 主线雷达 | Market theme, narrative structure, and opportunity discovery capability that studies macro fundamentals and market direction to identify short- and long-term market themes. |
+| ChainLens / 产业链透视 | Industry-chain graph, bottleneck, and structural opportunity analysis capability that studies industrial-chain nodes, bottleneck intensity, and market attention to discover potential investment opportunities. |
 
 More importantly, the Capability Layer is open and extensible. Future capabilities may include financial modeling, multimodal research-material parsing, portfolio risk control, and other specialized research systems.
 
@@ -195,11 +195,7 @@ http://127.0.0.1:5170
 
 FinClaw uses a unified `capabilities/` structure to manage external research abilities. A capability can be a complete research engine or an adapter around an existing system.
 
-The current OSS package includes:
-
-```text
-capabilities/tradingagents_astock
-```
+The current OSS package includes EquityScope / 个股深研.
 
 ThemeRadar / 主线雷达 and ChainLens / 产业链透视 capability manifests are included but disabled by default. Users can enable them after installing the corresponding implementations:
 
@@ -254,6 +250,10 @@ Discussions and improvements are welcome in areas such as:
 ## Disclaimer
 
 FinClaw is an investment research and learning tool. It does not provide financial advice. Outputs may contain errors, omissions, or outdated information. Users are responsible for their own investment decisions and risks.
+
+## Acknowledgements
+
+Parts of FinClaw's capability integration and implementation benefit from the open-source community, especially TauricResearch/TradingAgents and related A-share adaptations that inspired the multi-agent research workflow. See [NOTICE](./NOTICE) for license and modification details.
 
 ## License
 

@@ -1,0 +1,14 @@
+fastapi>=0.110.0
+uvicorn>=0.29.0
+sqlalchemy>=2.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.2.0
+pandas>=2.0.0
+requests>=2.31.0
+httpx>=0.27.0
+streamlit>=1.28.0
+plotly>=5.17.0
+akshare>=1.16.0
+baostock>=0.8.9
+mootdx>=0.10.0
+python-dotenv>=1.0.0

@@ -1,0 +1,25 @@
+{
+  "id": "tradinggraph",
+  "name": "产业链透视",
+  "display_name": "产业链透视",
+  "english_name": "ChainLens",
+  "aliases": ["产业链透视", "ChainLens", "产业链图谱", "瓶颈分析"],
+  "visibility": "external",
+  "category": "扩展研究能力",
+  "description": "面向产业链图谱、瓶颈环节和公司关系的研究能力，适合分析主线结构、产业链节点、公司关联和图谱化推理。",
+  "best_for": ["产业链图谱", "瓶颈节点分析", "主线结构推理"],
+  "implementation": {
+    "name": "TradingGraph",
+    "license": "external"
+  },
+  "skill": "tradinggraph",
+  "tools": ["control_industry_graph", "read_industry_graph", "read_industry_graph_node"],
+  "permissions": ["network", "market_data", "long_running", "expensive"],
+  "default_enabled": false,
+  "default_timeout_seconds": 3600,
+  "health": {
+    "type": "http",
+    "path": "/api/tradinggraph/health",
+    "timeout_seconds": 8
+  }
+}

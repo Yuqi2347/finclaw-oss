@@ -1,0 +1,31 @@
+FinClaw OSS
+Copyright 2026 FinClaw contributors
+
+This product is licensed under the Apache License, Version 2.0.
+
+Bundled capability: TradingAgents AStock
+
+The directory capabilities/tradingagents_astock contains a FinClaw-integrated
+A-share research capability derived from TradingAgents-Astock.
+
+TradingAgents-Astock:
+Copyright 2026 Simon (github.com/simonlin1212)
+
+TradingAgents-Astock is a fork of TradingAgents, originally developed by
+TauricResearch (https://github.com/TauricResearch/TradingAgents), licensed
+under the Apache License, Version 2.0.
+
+Original work:
+Copyright 2024-2025 TauricResearch
+Licensed under the Apache License, Version 2.0.
+
+FinClaw integration changes include:
+- Bundling TradingAgents AStock as a FinClaw capability under capabilities/
+- Routing A-share data through FinClaw / FinDataHub by default
+- Adding a self-contained HTML report renderer without BettaFish ReportEngine
+- Removing direct BettaFish coupling from the capability integration path
+
+See capabilities/tradingagents_astock/NOTICE and
+capabilities/tradingagents_astock/CHANGES_FROM_UPSTREAM.md for upstream
+attribution and detailed modifications.
+

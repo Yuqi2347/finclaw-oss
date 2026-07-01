@@ -1,0 +1,49 @@
+{
+  "id": "tradingagents",
+  "name": "个股深研",
+  "display_name": "个股深研",
+  "english_name": "EquityScope",
+  "aliases": ["个股深研", "EquityScope", "单标的深度研究", "个股研究"],
+  "visibility": "external",
+  "category": "扩展研究能力",
+  "description": "面向 A 股单标的多 Agent 深度研究能力，适合对单个股票进行基本面、技术面、新闻舆情、风险与交易视角的多维研究。",
+  "best_for": ["个股深度研究", "公司基本面与风险分析", "交易视角综合评估"],
+  "implementation": {
+    "name": "TradingAgents-AStock",
+    "upstream": "TauricResearch/TradingAgents",
+    "license": "Apache-2.0"
+  },
+  "skill": "background-research-engines",
+  "tools": ["run_stock_research"],
+  "permissions": ["network", "market_data", "long_running", "expensive"],
+  "default_enabled": true,
+  "default_timeout_seconds": 3600,
+  "health": {
+    "type": "checks",
+    "timeout_seconds": 8,
+    "checks": [
+      {
+        "id": "root",
+        "type": "directory_exists",
+        "path": "${tradingagents_root}"
+      },
+      {
+        "id": "package",
+        "type": "directory_exists",
+        "path": "${tradingagents_root}/tradingagents"
+      },
+      {
+        "id": "project",
+        "type": "file_exists",
+        "path": "${tradingagents_root}/pyproject.toml"
+      },
+      {
+        "id": "finclaw_runner",
+        "type": "python_module",
+        "module": "backend.adapters.tradingagents_runner",
+        "cwd": "${project_root}",
+        "timeout_seconds": 5
+      }
+    ]
+  }
+}

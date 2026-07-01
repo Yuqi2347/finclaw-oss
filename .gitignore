@@ -1,0 +1,76 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Runtime data and local databases
+backend/data/
+services/findatahub/data/
+*.sqlite
+*.sqlite-*
+*.db
+
+# Logs and process output
+logs/
+*.log
+tmp-*.out.log
+tmp-*.err.log
+uvicorn.*.log
+
+# Generated reports and research artifacts
+**/runtime/
+capabilities/*/.env
+capabilities/*/.pytest_cache/
+capabilities/*/__pycache__/
+**/final_reports/
+**/research_runs/
+**/research_records/
+**/research_threads/
+**/report_trash/
+
+# Internal development docs are kept local; public README assets remain tracked.
+docs/*
+!docs/assets/
+!docs/assets/**
+
+# Local temp files
+tmp/
+.tmp/
+_tmp*/
+*_result.json
+.cache/
+*.tmp
+*.bak
+*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

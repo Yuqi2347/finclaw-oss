@@ -1,0 +1,48 @@
+{
+  "id": "bettafish",
+  "name": "主线雷达",
+  "display_name": "主线雷达",
+  "english_name": "ThemeRadar",
+  "aliases": ["主线雷达", "ThemeRadar", "市场主线研究", "题材发现"],
+  "visibility": "external",
+  "category": "扩展研究能力",
+  "description": "面向市场主线、热点结构和题材机会的研究能力，适合发现和梳理 A 股市场主线、产业链线索、题材扩散与结构性机会。",
+  "best_for": ["市场主线发现", "题材与产业链研究", "结构性行情线索"],
+  "implementation": {
+    "name": "BettaFish",
+    "license": "external"
+  },
+  "skill": "background-research-engines",
+  "tools": ["run_market_discovery"],
+  "permissions": ["network", "market_data", "long_running", "expensive"],
+  "default_enabled": false,
+  "default_timeout_seconds": 3600,
+  "health": {
+    "type": "checks",
+    "timeout_seconds": 8,
+    "checks": [
+      {
+        "id": "root",
+        "type": "directory_exists",
+        "path": "${bettafish_root}"
+      },
+      {
+        "id": "package",
+        "type": "directory_exists",
+        "path": "${bettafish_root}/BettaFishFin"
+      },
+      {
+        "id": "skill_runner",
+        "type": "file_exists",
+        "path": "${bettafish_root}/BettaFishFin/skill_runner.py"
+      },
+      {
+        "id": "market_discovery",
+        "type": "python_module",
+        "module": "BettaFishFin.market_discovery",
+        "cwd": "${bettafish_root}",
+        "timeout_seconds": 5
+      }
+    ]
+  }
+}

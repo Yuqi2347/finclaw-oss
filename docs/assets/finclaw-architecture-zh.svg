@@ -1,0 +1,271 @@
+<svg width="1680" height="1120" viewBox="0 0 1680 1120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1680" y2="1120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F1E7"/>
+      <stop offset="0.5" stop-color="#EEF5F1"/>
+      <stop offset="1" stop-color="#F7F0E8"/>
+    </linearGradient>
+    <linearGradient id="agent" x1="480" y1="190" x2="920" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF9E8"/>
+      <stop offset="1" stop-color="#EAF4EA"/>
+    </linearGradient>
+    <linearGradient id="loop" x1="620" y1="360" x2="970" y2="660" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#F8ECFF"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="1080" y1="190" x2="1500" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF4FF"/>
+      <stop offset="1" stop-color="#FFF1E6"/>
+    </linearGradient>
+    <filter id="softShadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#172033" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrowSlate" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2L10 6L2 10" stroke="#72819A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2L10 6L2 10" stroke="#2F6FD6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 40px;
+        font-weight: 800;
+        fill: #172033;
+        letter-spacing: 0.2px;
+      }
+      .subtitle {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 20px;
+        font-weight: 500;
+        fill: #596579;
+      }
+      .section {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 25px;
+        font-weight: 800;
+        fill: #172033;
+      }
+      .label {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 18px;
+        font-weight: 760;
+        fill: #1F2A3D;
+      }
+      .body {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        fill: #536174;
+      }
+      .small {
+        font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        font-size: 14px;
+        font-weight: 560;
+        fill: #657186;
+      }
+      .en {
+        font-family: "Aptos", "Segoe UI", "Noto Sans", sans-serif;
+        letter-spacing: 0.1px;
+      }
+      .mono {
+        font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 13px;
+        font-weight: 650;
+        fill: #4E5B70;
+      }
+      .panel {
+        stroke-width: 2;
+      }
+      .card {
+        fill: rgba(255,255,255,0.86);
+        stroke: rgba(35,45,68,0.12);
+        stroke-width: 1.4;
+      }
+      .pill {
+        fill: rgba(255,255,255,0.74);
+        stroke: rgba(35,45,68,0.10);
+        stroke-width: 1.2;
+      }
+      .arrow {
+        stroke: #72819A;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        marker-end: url(#arrowSlate);
+      }
+      .arrowStrong {
+        stroke: #2F6FD6;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        marker-end: url(#arrowBlue);
+      }
+      .dash {
+        stroke-dasharray: 8 9;
+      }
+    </style>
+  </defs>
+
+  <rect width="1680" height="1120" fill="url(#bg)"/>
+  <circle cx="1420" cy="126" r="250" fill="#F4D3BC" opacity="0.28"/>
+  <circle cx="250" cy="810" r="270" fill="#DCEBD5" opacity="0.40"/>
+  <path d="M86 1010C248 922 392 938 552 998C736 1066 900 1050 1084 974C1254 904 1410 916 1588 1002" stroke="#D7DDD5" stroke-width="2" stroke-dasharray="10 12"/>
+
+  <text x="72" y="78" class="title">FinClaw Agentic Investment Research System</text>
+  <text x="74" y="114" class="subtitle">面向个人投资者的本地优先 AI 投研工作台：数据、工具、研究循环、长期记忆与能力扩展</text>
+
+  <!-- User and product entry -->
+  <g filter="url(#softShadow)">
+    <rect x="72" y="170" width="330" height="104" rx="26" fill="#EEF5FF" stroke="#AFC9F7" class="panel"/>
+    <circle cx="122" cy="222" r="28" fill="#FFFFFF" stroke="#5A83D7" stroke-width="3"/>
+    <circle cx="122" cy="213" r="8" stroke="#5A83D7" stroke-width="3"/>
+    <path d="M104 246C109 233 117 228 122 228C128 228 136 233 140 246" stroke="#5A83D7" stroke-width="3" stroke-linecap="round"/>
+    <text x="166" y="215" class="section en">User Intent</text>
+    <text x="166" y="244" class="body">自然语言需求 / 显式确认 / 反馈</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="72" y="330" width="330" height="120" rx="26" fill="#FFFDF7" stroke="#D8CCB7" class="panel"/>
+    <text x="106" y="378" class="section">FinClaw 主应用</text>
+    <text x="106" y="410" class="body">对话入口、确认卡片、可视化面板</text>
+    <text x="106" y="435" class="body">把用户需求转化为受控的 Agent 执行</text>
+  </g>
+
+  <path d="M237 274V330" class="arrowStrong"/>
+
+  <!-- Data and memory -->
+  <g filter="url(#softShadow)">
+    <rect x="72" y="520" width="396" height="350" rx="30" fill="#EFF8EA" stroke="#B9D9A8" class="panel"/>
+    <text x="112" y="568" class="section">数据与记忆底座</text>
+    <text x="112" y="596" class="body">稳定资料、个人上下文与复盘材料</text>
+
+    <rect x="112" y="624" width="316" height="62" rx="16" class="card"/>
+    <text x="134" y="650" class="label">FinDataHub</text>
+    <text x="134" y="675" class="body">行情、财务、新闻、市场包、组合数据</text>
+
+    <rect x="112" y="704" width="316" height="62" rx="16" class="card"/>
+    <text x="134" y="730" class="label">长期记忆</text>
+    <text x="134" y="755" class="body">用户画像、投资框架、跨会话判断</text>
+
+    <rect x="112" y="784" width="316" height="62" rx="16" class="card"/>
+    <text x="134" y="810" class="label">研究档案</text>
+    <text x="134" y="835" class="body">研究摘要、待验证判断、复盘线索</text>
+  </g>
+
+  <!-- Agent harness -->
+  <g filter="url(#softShadow)">
+    <rect x="530" y="170" width="510" height="668" rx="36" fill="url(#agent)" stroke="#D2B86D" stroke-width="2.3"/>
+    <text x="580" y="220" class="section en">Agent Harness</text>
+    <text x="580" y="250" class="body">把 LLM 放进可治理、可观测、可取消的执行环境</text>
+
+    <rect x="580" y="286" width="188" height="78" rx="18" class="card"/>
+    <text x="604" y="316" class="label en">Tool Gateway</text>
+    <text x="604" y="342" class="body">工具注册与参数校验</text>
+
+    <rect x="802" y="286" width="188" height="78" rx="18" class="card"/>
+    <text x="826" y="316" class="label">权限与预算</text>
+    <text x="826" y="342" class="body">工具权限、超时、取消</text>
+
+    <rect x="580" y="388" width="188" height="78" rx="18" class="card"/>
+    <text x="604" y="418" class="label">确认卡片</text>
+    <text x="604" y="444" class="body">高成本动作先确认</text>
+
+    <rect x="802" y="388" width="188" height="78" rx="18" class="card"/>
+    <text x="826" y="418" class="label">上下文治理</text>
+    <text x="826" y="444" class="body">续读、压缩、长任务承载</text>
+
+    <rect x="580" y="490" width="188" height="78" rx="18" class="card"/>
+    <text x="604" y="520" class="label">运行隔离</text>
+    <text x="604" y="546" class="body">环境变量与文件边界</text>
+
+    <rect x="802" y="490" width="188" height="78" rx="18" class="card"/>
+    <text x="826" y="520" class="label">可观测性</text>
+    <text x="826" y="546" class="body">Trace、Token、错误记录</text>
+
+    <rect x="610" y="610" width="360" height="178" rx="28" fill="url(#loop)" stroke="#B8AAE8" stroke-width="2"/>
+    <text x="654" y="652" class="section en">Deep Research Loop</text>
+
+    <rect x="650" y="682" width="124" height="54" rx="15" fill="#FFFFFF" stroke="#BAC8FF" stroke-width="1.4"/>
+    <text x="674" y="715" class="label">研究 Agent</text>
+
+    <rect x="812" y="682" width="124" height="54" rx="15" fill="#FFFFFF" stroke="#BAC8FF" stroke-width="1.4"/>
+    <text x="842" y="715" class="label">验证 Agent</text>
+
+    <path d="M774 709H812" class="arrow"/>
+    <path d="M875 736C850 760 732 760 707 736" class="arrow dash"/>
+    <text x="650" y="770" class="small">研究草稿迭代、审稿反馈、直到满足研究目标</text>
+  </g>
+
+  <!-- Capability layer -->
+  <g filter="url(#softShadow)">
+    <rect x="1100" y="170" width="500" height="668" rx="36" fill="url(#cap)" stroke="#9EB8EA" stroke-width="2.3"/>
+    <text x="1150" y="220" class="section en">Capability Layer</text>
+    <text x="1150" y="250" class="body">把完整研究引擎封装成可治理、可健康检查的专业能力</text>
+
+    <rect x="1150" y="296" width="400" height="94" rx="22" fill="#FFFFFF" stroke="#C0D4FF" stroke-width="1.6"/>
+    <text x="1180" y="329" class="label">个股深研</text>
+    <text x="1274" y="329" class="mono">EquityScope</text>
+    <text x="1180" y="358" class="body">A 股单标的多 Agent 深度研究</text>
+    <text x="1180" y="382" class="body">适合公司画像、估值、风险与投资判断</text>
+
+    <rect x="1150" y="420" width="400" height="94" rx="22" fill="#FFFFFF" stroke="#F0C8A9" stroke-width="1.6"/>
+    <text x="1180" y="453" class="label">主线雷达</text>
+    <text x="1274" y="453" class="mono">ThemeRadar</text>
+    <text x="1180" y="482" class="body">市场主线、热点结构与题材扩散研究</text>
+    <text x="1180" y="506" class="body">适合识别阶段、催化、资金与叙事变化</text>
+
+    <rect x="1150" y="544" width="400" height="94" rx="22" fill="#FFFFFF" stroke="#B8D8B1" stroke-width="1.6"/>
+    <text x="1180" y="577" class="label">产业链透视</text>
+    <text x="1292" y="577" class="mono">ChainLens</text>
+    <text x="1180" y="606" class="body">产业链图谱、瓶颈环节与结构性机会</text>
+    <text x="1180" y="630" class="body">适合上下游传导、卡点与受益环节分析</text>
+
+    <rect x="1150" y="668" width="400" height="94" rx="22" fill="#FFFFFF" stroke="#D5C1EA" stroke-width="1.6"/>
+    <text x="1180" y="701" class="label">未来能力扩展</text>
+    <text x="1310" y="701" class="mono">Open Capability</text>
+    <text x="1180" y="730" class="body">财务建模、多模态研报、组合风控</text>
+    <text x="1180" y="754" class="body">支持持续接入新的专业研究系统</text>
+  </g>
+
+  <!-- Output -->
+  <g filter="url(#softShadow)">
+    <rect x="560" y="910" width="1010" height="126" rx="30" fill="#FFF9EF" stroke="#E5C58B" stroke-width="2"/>
+    <text x="604" y="954" class="section">输出工作台</text>
+    <rect x="760" y="928" width="132" height="48" rx="16" class="pill"/>
+    <text x="800" y="958" class="label">对话</text>
+    <rect x="916" y="928" width="150" height="48" rx="16" class="pill"/>
+    <text x="946" y="958" class="label">研究报告</text>
+    <rect x="1090" y="928" width="150" height="48" rx="16" class="pill"/>
+    <text x="1120" y="958" class="label">来源引用</text>
+    <rect x="1264" y="928" width="178" height="48" rx="16" class="pill"/>
+    <text x="1294" y="958" class="label">用户反馈与复盘</text>
+    <text x="604" y="1002" class="body">最终沉淀为可阅读、可复盘、可继续迭代的研究材料</text>
+  </g>
+
+  <!-- Evolution -->
+  <g filter="url(#softShadow)">
+    <rect x="72" y="910" width="416" height="126" rx="30" fill="#F8F0FF" stroke="#CBB8EA" stroke-width="2"/>
+    <text x="108" y="954" class="section">长期方向：自进化投研</text>
+    <text x="108" y="986" class="body">研究框架演化 / 质量反馈闭环</text>
+    <text x="108" y="1012" class="body">能力缺口识别与扩展</text>
+  </g>
+
+  <!-- Connections -->
+  <path d="M402 390C460 390 480 300 530 300" class="arrowStrong"/>
+  <path d="M402 390C482 390 482 650 530 650" class="arrow"/>
+  <path d="M468 678C502 678 510 690 560 690" class="arrow"/>
+  <path d="M1040 345C1070 345 1074 345 1100 345" class="arrowStrong"/>
+  <path d="M1040 530C1080 530 1084 590 1100 590" class="arrow"/>
+  <path d="M790 838V910" class="arrowStrong"/>
+  <path d="M1350 838V910" class="arrowStrong"/>
+  <path d="M280 870V910" class="arrow"/>
+
+  <!-- Runtime tags -->
+  <g>
+    <rect x="590" y="136" width="154" height="38" rx="19" fill="#FFFFFF" stroke="#E1E7EF"/>
+    <text x="622" y="160" class="mono">LLM Runtime</text>
+    <rect x="1242" y="136" width="196" height="38" rx="19" fill="#FFFFFF" stroke="#E1E7EF"/>
+    <text x="1274" y="160" class="mono">Capability Runtime</text>
+  </g>
+</svg>

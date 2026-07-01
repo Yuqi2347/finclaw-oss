@@ -252,7 +252,12 @@ FinClaw 是一个投资研究和学习工具，不构成任何投资建议。系
 
 ## 开源致谢
 
-FinClaw 的部分能力接入和实现受益于开源社区，尤其感谢 TauricResearch/TradingAgents 及相关 A 股特化项目提供的多 Agent 投研框架启发。具体许可证和改造说明见 [NOTICE](./NOTICE)。
+FinClaw 的部分能力接入和实现受益于以下开源项目：
+
+- [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents)：提供多 Agent 金融投研框架的原始思路与实现基础。
+- [simonlin1212/tradingagents-astock](https://github.com/simonlin1212/tradingagents-astock)：提供 A 股场景特化的 TradingAgents 改造基础。
+
+具体许可证和改造说明见 [NOTICE](./NOTICE)。
 
 ## License
 

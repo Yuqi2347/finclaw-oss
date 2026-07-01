@@ -253,7 +253,12 @@ FinClaw is an investment research and learning tool. It does not provide financi
 
 ## Acknowledgements
 
-Parts of FinClaw's capability integration and implementation benefit from the open-source community, especially TauricResearch/TradingAgents and related A-share adaptations that inspired the multi-agent research workflow. See [NOTICE](./NOTICE) for license and modification details.
+Parts of FinClaw's capability integration and implementation benefit from the following open-source projects:
+
+- [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents): the original multi-agent financial research framework that inspired the workflow.
+- [simonlin1212/tradingagents-astock](https://github.com/simonlin1212/tradingagents-astock): an A-share focused adaptation of TradingAgents.
+
+See [NOTICE](./NOTICE) for license and modification details.
 
 ## License
 

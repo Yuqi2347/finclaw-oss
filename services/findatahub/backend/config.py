@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 from .providers.network import clear_proxy_env
@@ -39,7 +40,11 @@ def _env_files() -> tuple[Path, ...]:
 
 
 class Settings(BaseSettings):
-    db_url: str = f"sqlite:///{PROJECT_ROOT / 'data' / 'findatahub.sqlite'}"
+    runtime_dir: str = Field(
+        default=str(REPO_ROOT / "runtime"),
+        validation_alias=AliasChoices("FINCLAW_RUNTIME_DIR", "FINDATAHUB_RUNTIME_DIR"),
+    )
+    db_url: str = ""
     api_title: str = "FinDataHub"
     disable_proxy: bool = True
     provider_profile: str = "free"
@@ -55,6 +60,13 @@ class Settings(BaseSettings):
         env_file = _env_files()
         env_prefix = "FINDATAHUB_"
         extra = "ignore"
+
+    def model_post_init(self, __context) -> None:
+        runtime_dir = _resolve_repo_path(self.runtime_dir, REPO_ROOT / "runtime")
+        self.runtime_dir = str(runtime_dir)
+        if not self.db_url:
+            db_path = runtime_dir / "findatahub" / "data" / "findatahub.sqlite"
+            self.db_url = f"sqlite:///{db_path.as_posix()}"
 
 
 settings = Settings()

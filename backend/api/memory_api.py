@@ -3,17 +3,17 @@
 提供记忆查看、编辑、统计等功能
 """
 
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from backend.core.config import DATA_DIR
 from backend.services.long_term_memory import long_term_memory_service
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 
-MEMORY_DIR = Path(__file__).parent.parent / "data" / "memory"
+MEMORY_DIR = DATA_DIR / "memory"
 ARCHIVE_DIR = MEMORY_DIR / "archive"
 
 

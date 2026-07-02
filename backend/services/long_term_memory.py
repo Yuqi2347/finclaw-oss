@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from backend.core.config import DATA_DIR
+from backend.core.config import DATA_DIR, PROJECT_ROOT
 from backend.core.openai_stream import openai_stream_client
 
 
 MEMORY_DIR = DATA_DIR / "memory"
 PROMPTS_DIR = DATA_DIR.parent / "prompts"
+MEMORY_TEMPLATE_DIR = PROJECT_ROOT / "backend" / "templates" / "memory"
 ARCHIVE_DIR = MEMORY_DIR / "archive"
 CANDIDATE_DIR = MEMORY_DIR / "candidates"
 CONFLICT_DIR = MEMORY_DIR / "conflicts"
@@ -53,6 +54,7 @@ POSITIVE_TERMS = ("核心", "配置", "看好", "长期", "主线", "继续", "�
 class LongTermMemoryService:
     def __init__(self) -> None:
         self._lock = threading.RLock()
+        self._ensure_dirs()
 
     def get_core(self, file_type: str) -> dict[str, Any]:
         file_type = _validate_file_type(file_type)
@@ -1263,12 +1265,25 @@ class LongTermMemoryService:
     def _ensure_dirs(self) -> None:
         for path in (MEMORY_DIR, ARCHIVE_DIR, CANDIDATE_DIR, CONFLICT_DIR, EVENT_DIR):
             path.mkdir(parents=True, exist_ok=True)
+        self._seed_core_memory_files()
         for path in CANDIDATE_FILES.values():
             if not path.exists():
                 path.write_text("", encoding="utf-8")
         for path in (PENDING_CONFLICTS_FILE, RESOLVED_CONFLICTS_FILE, EVENT_FILE):
             if not path.exists():
                 path.write_text("", encoding="utf-8")
+
+    def _seed_core_memory_files(self) -> None:
+        for file_type, path in CORE_FILES.items():
+            if path.exists():
+                continue
+            template_path = MEMORY_TEMPLATE_DIR / f"{file_type}.md"
+            if template_path.exists():
+                path.write_text(template_path.read_text(encoding="utf-8"), encoding="utf-8")
+            elif file_type == "profile":
+                path.write_text(self._default_profile_content(), encoding="utf-8")
+            else:
+                path.write_text(f"# {file_type}\n\n暂无内容。\n", encoding="utf-8")
 
     def _read_jsonl(self, path: Path) -> list[dict[str, Any]]:
         if not path.exists():

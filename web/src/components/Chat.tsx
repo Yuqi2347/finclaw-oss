@@ -10,6 +10,7 @@ import {
   listAnalysisJobs,
   listSessionMessages,
   listSessions,
+  renameSession,
   streamChatWithSignal,
   streamConfirm,
 } from "../api/finclaw";
@@ -440,6 +441,22 @@ export function Chat() {
     }
   }
 
+  async function handleRenameSession() {
+    if (active || sessionLoading) return;
+    const current = sessions.find((row) => row.session_id === session);
+    const currentTitle = current?.title || "";
+    const nextTitle = window.prompt("输入新的会话名称", currentTitle);
+    if (nextTitle === null) return;
+    const trimmed = nextTitle.trim();
+    if (!trimmed || trimmed === currentTitle) return;
+    try {
+      const updated = await renameSession(session, trimmed);
+      setSessions((prev) => prev.map((row) => (row.session_id === updated.session_id ? updated : row)));
+    } catch (error) {
+      setSessionError(error instanceof Error ? error.message : "会话重命名失败");
+    }
+  }
+
   async function onConfirm(actionId: string, approved: boolean, argumentsOverride?: Record<string, unknown>) {
     if (active) return;
     if (!approved) {
@@ -488,7 +505,6 @@ export function Chat() {
       <header className="topbar">
         <div>
           <div className="brand">FinClaw</div>
-          <div className="tagline">Controlled investment research assistant</div>
         </div>
         <div className="session-bar">
           <a className="session-link" href="/logs" target="_blank" rel="noreferrer">
@@ -508,6 +524,9 @@ export function Chat() {
           </select>
           <button type="button" onClick={() => void handleNewSession()} disabled={active || sessionLoading}>
             新会话
+          </button>
+          <button type="button" className="ghost" onClick={() => void handleRenameSession()} disabled={active || sessionLoading}>
+            重命名
           </button>
           <button
             type="button"

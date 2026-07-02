@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any
 
+from backend.core.config import DATA_DIR
 from backend.core.openai_stream import openai_stream_client
 from backend.services.sessions import chat_session_store
 from backend.tools import memory_tools
@@ -15,7 +16,7 @@ from backend.services.long_term_memory import long_term_memory_service
 
 
 HOOK_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "memory" / "session_hook_prompt.md"
-HOOK_LOG_FILE = Path(__file__).parent.parent / "data" / "memory" / "memory_hook_log.jsonl"
+HOOK_LOG_FILE = DATA_DIR / "memory" / "memory_hook_log.jsonl"
 HOOK_MESSAGE_LIMIT = 100
 HOOK_SCAN_LIMIT = 200
 HOOK_BUFFER_TARGET_TURNS = 5

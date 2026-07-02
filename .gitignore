@@ -30,6 +30,7 @@ pnpm-debug.log*
 *.tsbuildinfo
 
 # Runtime data and local databases
+runtime/
 backend/data/
 services/findatahub/data/
 *.sqlite

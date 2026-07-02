@@ -154,12 +154,6 @@ input {
   letter-spacing: -0.05em;
 }
 
-.tagline {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .status-dot {
   border: 1px solid var(--card-border);
   border-radius: var(--radius-pill);
@@ -5558,7 +5552,6 @@ body {
   letter-spacing: -0.055em;
 }
 
-.tagline,
 .status-dot,
 .session-bar select,
 .session-bar button,

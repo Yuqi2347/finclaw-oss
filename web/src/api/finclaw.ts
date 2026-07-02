@@ -253,6 +253,16 @@ export async function createSession(title?: string): Promise<SessionSummary> {
   return response.json();
 }
 
+export async function renameSession(sessionId: string, title: string): Promise<SessionSummary> {
+  const response = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) throw new Error(`session rename failed: ${response.status}`);
+  return response.json();
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(sessionId)}`, {
     method: "DELETE",

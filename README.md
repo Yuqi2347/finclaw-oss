@@ -119,13 +119,18 @@ FinClaw/
 │  ├─ services/             # 会话、记忆、研究、观测、能力插件、DataHub 代理
 │  ├─ tools/                # Agent 可调用工具
 │  ├─ skills/               # 工具/流程的渐进式说明
-│  └─ prompts/              # 核心 prompt 与记忆 prompt
+│  ├─ prompts/              # 核心 prompt 与记忆 prompt
+│  └─ templates/            # 默认记忆等非私有初始化模板
 ├─ services/findatahub/     # 内嵌市场数据服务
 ├─ web/                     # React 前端
 ├─ capabilities/            # 内置与可选扩展能力插件
 │  ├─ tradingagents_astock/ # 个股深研 / EquityScope
 │  ├─ bettafish/            # 主线雷达 / ThemeRadar manifest
 │  └─ tradinggraph/         # 产业链透视 / ChainLens manifest
+├─ runtime/                 # 本地运行时数据：会话、记忆、研究、DataHub、能力产物、日志和缓存（不进入 Git）
+│  ├─ finclaw/data/         # 会话、长期记忆、研究线程、研究档案、审计与观测数据
+│  ├─ findatahub/data/      # 行情、财务、新闻、刷新日志和 provider 使用记录
+│  └─ capabilities/         # 能力插件生成的报告、缓存和运行产物
 ├─ docs/                    # 架构、数据、记忆和可观测性文档
 ├─ .env.example
 ├─ LICENSE

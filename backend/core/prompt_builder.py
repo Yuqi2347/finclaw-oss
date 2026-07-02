@@ -13,10 +13,11 @@ from backend.services.long_term_memory import long_term_memory_service
 from backend.services.sessions import chat_session_store
 from backend.tools.reports import report_library
 from backend.core.skill_manager import skill_manager
+from backend.core.config import DATA_DIR
 
 
 PROMPTS_ROOT = Path(__file__).resolve().parent.parent / "prompts"
-MEMORY_DIR = Path(__file__).resolve().parent.parent / "data" / "memory"
+MEMORY_DIR = DATA_DIR / "memory"
 
 STATIC_PROMPT_PARTS = [
     "core/identity.md",

@@ -4,7 +4,8 @@
 """
 
 import sys
-from pathlib import Path
+
+from backend.core.config import DATA_DIR
 
 print("=" * 60)
 print("FinClaw 记忆系统集成验证")
@@ -13,7 +14,7 @@ print()
 
 # 1. 检查文件结构
 print("✓ 检查文件结构...")
-memory_dir = Path(__file__).parent / "data" / "memory"
+memory_dir = DATA_DIR / "memory"
 files_to_check = [
     memory_dir / "profile.md",
     memory_dir / "playbook.md",

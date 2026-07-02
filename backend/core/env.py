@@ -50,6 +50,7 @@ def _resolve_repo_path(value: str | None, default: Path) -> Path:
 @dataclass(frozen=True)
 class Settings:
     project_root: Path
+    runtime_dir: Path
     datahub_mode: str
     datahub_mount_path: str
     datahub_base_url: str
@@ -107,6 +108,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    runtime_dir = _resolve_repo_path(os.getenv("FINCLAW_RUNTIME_DIR"), PROJECT_ROOT / "runtime")
     datahub_mode = os.getenv("FINCLAW_DATAHUB_MODE", "embedded").strip().lower()
     datahub_mount_path = os.getenv("FINCLAW_DATAHUB_MOUNT_PATH", "/datahub").strip() or "/datahub"
     if not datahub_mount_path.startswith("/"):
@@ -118,6 +120,7 @@ def load_settings() -> Settings:
         datahub_base_url = os.getenv("DATAHUB_BASE_URL", "http://127.0.0.1:8700").rstrip("/")
     return Settings(
         project_root=PROJECT_ROOT,
+        runtime_dir=runtime_dir,
         datahub_mode=datahub_mode,
         datahub_mount_path=datahub_mount_path,
         datahub_base_url=datahub_base_url,

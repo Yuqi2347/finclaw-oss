@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -55,7 +55,7 @@ class MarketNewsService:
 
     def refresh_snapshot(self, db: Session, *, force: bool = False, limit: int = 6) -> dict[str, Any]:
         today = date.today()
-        self.cleanup_old_snapshots(db, keep_date=today)
+        self.cleanup_old_snapshots(db)
         if not force and not self._snapshot_is_stale(db):
             return {
                 "started": False,
@@ -82,7 +82,7 @@ class MarketNewsService:
         }
 
     def cleanup_old_snapshots(self, db: Session, *, keep_date: date | None = None) -> int:
-        keep_date = keep_date or date.today()
+        keep_date = keep_date or (date.today() - timedelta(days=2))
         deleted = db.query(models.MarketNewsArticle).filter(models.MarketNewsArticle.crawl_date < keep_date).delete()
         db.commit()
         return int(deleted or 0)

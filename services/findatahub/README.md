@@ -13,7 +13,7 @@ you usually do not need to start it as a separate service.
 - Market context and refresh logs
 - Provider routing for free providers and optional Tushare
 
-Runtime data is stored under `services/findatahub/data/` and is ignored by git.
+Runtime data is stored under `runtime/findatahub/data/` by default and is ignored by git.
 
 ## Standalone Mode
 

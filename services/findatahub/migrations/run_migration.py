@@ -5,8 +5,10 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from services.findatahub.backend.config import settings
+
 # 数据库路径
-DB_PATH = Path(__file__).parent.parent / "data" / "findatahub.sqlite"
+DB_PATH = Path(settings.db_url.replace("sqlite:///", "", 1)) if settings.db_url.startswith("sqlite:///") else Path("findatahub.sqlite")
 
 # 迁移 SQL
 MIGRATION_SQL = """

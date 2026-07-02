@@ -5,11 +5,11 @@
 
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Any
 
+from backend.core.config import DATA_DIR
 
-MEMORY_DIR = Path(__file__).parent.parent / "data" / "memory"
+MEMORY_DIR = DATA_DIR / "memory"
 
 
 def analyze_memory_system() -> Dict[str, Any]:

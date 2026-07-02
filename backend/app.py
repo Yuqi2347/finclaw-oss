@@ -35,6 +35,7 @@ from backend.services.portfolio_ledger import portfolio_ledger_service
 from backend.services.tradinggraph_service import tradinggraph_service
 from backend.services.research_threads import research_thread_service
 from backend.services.capabilities import capability_service
+from backend.services.runtime_maintenance import runtime_maintenance_service
 from backend.adapters.tradinggraph_client import TradingGraphError
 from backend.tools.datahub import datahub_client
 from backend.tools.reports import report_library
@@ -68,6 +69,11 @@ class CapabilityUpdateRequest(BaseModel):
     timeout_seconds: int | None = None
     permissions: list[str] | None = None
 
+
+class SessionRenameRequest(BaseModel):
+    title: str
+
+
 app = FastAPI(title="FinClaw")
 
 
@@ -97,6 +103,7 @@ _mount_embedded_datahub()
 
 @app.on_event("startup")
 def _startup_dashboard_refresh_scheduler() -> None:
+    runtime_maintenance_service.run_once()
     dashboard_refresh_scheduler.start_background_scheduler()
 
 app.add_middleware(
@@ -623,6 +630,16 @@ def list_sessions(limit: int = 50):
 @app.post("/api/sessions")
 def create_session(payload: SessionCreateRequest):
     return chat_session_store.create_session(title=payload.title)
+
+
+@app.patch("/api/sessions/{session_id}")
+def rename_session(session_id: str, payload: SessionRenameRequest):
+    try:
+        return chat_session_store.rename_session(session_id, payload.title)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="session not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.delete("/api/sessions/{session_id}")

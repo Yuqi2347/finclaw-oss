@@ -189,6 +189,25 @@ class ChatSessionStore:
             "active_approval_action_id": None,
         }
 
+    def rename_session(self, session_id: str, title: str) -> dict[str, Any]:
+        safe_title = re.sub(r"\s+", " ", str(title or "")).strip()
+        if not safe_title:
+            raise ValueError("会话名称不能为空")
+        if len(safe_title) > 60:
+            safe_title = safe_title[:60].rstrip()
+        now = _now()
+        with self._lock, self._connect() as conn:
+            self._ensure_session_exists(conn, session_id)
+            conn.execute(
+                "update chat_sessions set title=?, updated_at=? where session_id=?",
+                (safe_title, now, session_id),
+            )
+        return self.get_session(session_id) or {
+            "session_id": session_id,
+            "title": safe_title,
+            "updated_at": now,
+        }
+
     def delete_session(self, session_id: str) -> dict[str, Any]:
         with self._lock, self._connect() as conn:
             self._ensure_session_exists(conn, session_id)

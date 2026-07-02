@@ -22,6 +22,7 @@ from .services.news_provider import NewsProvider
 from .services.plan_service import PlanService
 from .services.portfolio_service import PortfolioService
 from .services.refresh_log_service import RefreshLogService
+from .services.runtime_maintenance_service import runtime_maintenance_service
 from .services.stock_package_service import StockPackageService
 from .services.trigger_service import TriggerService
 from .services.watchlist_service import WatchlistService
@@ -93,6 +94,13 @@ def startup_refresh_instrument_index() -> None:
     if _instrument_index_startup_started:
         return
     _instrument_index_startup_started = True
+    db = SessionLocal()
+    try:
+        runtime_maintenance_service.run_once(db)
+    except Exception as exc:
+        logger.warning("FinDataHub runtime maintenance failed: %s", exc)
+    finally:
+        db.close()
     thread = threading.Thread(target=_bootstrap_instrument_index_if_needed, name="instrument-index-bootstrap", daemon=True)
     thread.start()
 

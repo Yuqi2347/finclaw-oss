@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from backend.core.config import BETTAFISH_ROOT, DATAHUB_BASE_URL, DEFAULT_PYTHON, PROJECT_ROOT, TRADINGAGENTS_ROOT
+from backend.core.config import BETTAFISH_ROOT, CAPABILITY_RUNTIME_DIR, DATAHUB_BASE_URL, DEFAULT_PYTHON, PROJECT_ROOT, TRADINGAGENTS_ROOT
 from backend.core.env import settings
 from backend.core.subprocess_utils import safe_popen, safe_subprocess_env
 
@@ -452,9 +452,13 @@ class AnalysisJobStore:
         return safe_subprocess_env()
 
     def _tradingagents_env(self) -> dict[str, str]:
+        equityscope_runtime = CAPABILITY_RUNTIME_DIR / "equityscope"
         env = {
             "TRADINGAGENTS_DATAHUB_URL": DATAHUB_BASE_URL,
             "FINDATAHUB_API_BASE": DATAHUB_BASE_URL,
+            "TRADINGAGENTS_RESULTS_DIR": str(equityscope_runtime / "logs"),
+            "TRADINGAGENTS_CACHE_DIR": str(equityscope_runtime / "cache"),
+            "TRADINGAGENTS_MEMORY_LOG_PATH": str(equityscope_runtime / "memory" / "trading_memory.md"),
         }
         finclaw_env = {
             "FINCLAW_LLM_API_KEY": settings.llm_api_key,

@@ -13,7 +13,7 @@ from backend.core.openai_stream import openai_stream_client
 
 
 MEMORY_DIR = DATA_DIR / "memory"
-PROMPTS_DIR = DATA_DIR.parent / "prompts"
+PROMPTS_DIR = PROJECT_ROOT / "backend" / "prompts"
 MEMORY_TEMPLATE_DIR = PROJECT_ROOT / "backend" / "templates" / "memory"
 ARCHIVE_DIR = MEMORY_DIR / "archive"
 CANDIDATE_DIR = MEMORY_DIR / "candidates"
@@ -743,7 +743,7 @@ class LongTermMemoryService:
             "output_contract": {
                 "window_evaluation": "未达成|认知达成行为未跟上|晋级",
                 "evaluation_reason": "一到两句话",
-                "new_level": "Level 1",
+                "new_level": "晋级时只能输出下一等级；否则输出当前等级；Level 6 永远输出 Level 6",
                 "snapshot": "覆盖后的完整人物志自然语言段落",
                 "milestone_append": "无则为空字符串",
                 "clear_log": True,
@@ -757,6 +757,9 @@ class LongTermMemoryService:
         if path.exists():
             return path.read_text(encoding="utf-8")[:8000]
         return ""
+
+    def read_level_definition(self, current_level: str | None = None) -> str:
+        return self._read_level_definition(str(current_level or "Level 1"))
 
     def _profile_execution_evidence(self) -> dict[str, Any]:
         evidence: dict[str, Any] = {
@@ -816,10 +819,12 @@ class LongTermMemoryService:
         evaluation = str(result.get("window_evaluation") or "未达成").strip()
         reason = str(result.get("evaluation_reason") or "").strip()
         current_level = str(previous.get("current_level") or "Level 1").strip()
-        new_level = str(result.get("new_level") or current_level).strip()
+        new_level = _normalize_level_transition(current_level, str(result.get("new_level") or current_level), evaluation)
         snapshot = str(result.get("snapshot") or previous.get("snapshot") or "暂无稳定人物志。").strip()
         milestones = str(previous.get("milestones") or "<!-- 永久保留 -->").strip()
         milestone_append = str(result.get("milestone_append") or "").strip()
+        if new_level == current_level:
+            milestone_append = ""
         if milestone_append and milestone_append not in milestones:
             milestones = milestones.rstrip() + "\n" + milestone_append
         evaluation_line = evaluation if not reason else f"{evaluation}（{reason}）"
@@ -1438,6 +1443,25 @@ def _extract_json_object(text: str) -> dict[str, Any]:
 
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def _level_number(value: str | None) -> int:
+    match = re.search(r"(\d+)", str(value or ""))
+    if not match:
+        return 1
+    return max(1, min(int(match.group(1)), 6))
+
+
+def _normalize_level_transition(current_level: str, requested_level: str, evaluation: str) -> str:
+    current = _level_number(current_level)
+    requested = _level_number(requested_level)
+    if current >= 6:
+        return "Level 6"
+    if "晋级" not in str(evaluation or ""):
+        return f"Level {current}"
+    if requested <= current:
+        return f"Level {current}"
+    return f"Level {min(current + 1, requested, 6)}"
 
 
 long_term_memory_service = LongTermMemoryService()

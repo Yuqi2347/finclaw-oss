@@ -408,6 +408,8 @@ def _run_memory_extraction(
     try:
         session_memory_state = chat_session_store.get_memory_state(session_id)
         explicit_memory_intent = _has_explicit_memory_intent(messages)
+        profile_context = long_term_memory_service.read_profile_context()
+        current_level = str(profile_context.get("current_level") or "Level 1")
         hook_payload = {
             "session_id": session_id,
             "trigger_reason": trigger_reason,
@@ -415,6 +417,13 @@ def _run_memory_extraction(
             "baseline_message_id": baseline_message_id,
             "explicit_memory_intent": explicit_memory_intent,
             "buffer_count": buffer_count,
+            "profile": {
+                "current_level": current_level,
+                "snapshot": profile_context.get("snapshot") or "",
+                "log_count": profile_context.get("log_count") or 0,
+                "window_no": profile_context.get("window_no") or 1,
+            },
+            "level_definition": long_term_memory_service.read_level_definition(current_level),
             "compacted_session_memory": session_memory_state.get("memory") or {},
             "new_messages": _trim_messages_for_hook(messages),
         }

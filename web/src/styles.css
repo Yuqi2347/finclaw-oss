@@ -6067,17 +6067,26 @@ body {
 
 .composer-column .composer {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "menu mode input actions";
   gap: 10px;
-  align-items: stretch;
-  border-radius: 24px;
-  padding: 14px 14px 12px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 9px 10px;
+  min-height: 58px;
+  transition:
+    border-radius 180ms ease,
+    padding 180ms ease,
+    min-height 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .composer textarea {
+  grid-area: input;
   width: 100%;
-  min-height: 28px;
-  max-height: 180px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 128px;
   border: 0;
   outline: 0;
   resize: none;
@@ -6085,9 +6094,9 @@ body {
   background: transparent;
   color: var(--graphite-900);
   font: inherit;
-  font-size: 15px;
-  line-height: 1.55;
-  padding: 2px 4px;
+  font-size: 18px;
+  line-height: 30px;
+  padding: 0 4px;
   scrollbar-width: thin;
 }
 
@@ -6096,25 +6105,111 @@ body {
   font-weight: 650;
 }
 
-.composer-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.composer-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .composer-actions {
+  grid-area: actions;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  align-self: center;
 }
 
+.composer-menu {
+  grid-area: menu;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+}
+
+.composer-mode-token {
+  grid-area: mode;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  height: 30px;
+  color: #1872df;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 680;
+  line-height: 30px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.composer-mode-label {
+  display: inline-block;
+  height: 30px;
+  line-height: 30px;
+}
+
+.composer-mode-remove {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.58em;
+  height: 30px;
+  margin-left: 2px;
+  color: #1872df;
+  font-size: 0.55em;
+  font-weight: 740;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transform: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.composer-mode-token:hover .composer-mode-remove,
+.composer-mode-token:focus-within .composer-mode-remove {
+  opacity: 0.72;
+}
+
+.composer--expanded {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "input input input input"
+    "menu mode spacer actions";
+  row-gap: 12px;
+  column-gap: 10px;
+  align-items: end;
+  min-height: 150px;
+  border-radius: 34px;
+  padding: 20px 18px 14px;
+}
+
+.composer--expanded textarea {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: stretch;
+  height: auto;
+  min-height: 86px;
+  max-height: 210px;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1.58;
+}
+
+.composer--expanded .composer-menu {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.composer--expanded .composer-actions {
+  grid-column: 4;
+  grid-row: 2;
+  justify-self: end;
+}
+
+.composer--expanded .composer-mode-token {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.composer-plus,
 .composer-icon-button,
 .composer-send,
 .composer-stop-button {
@@ -6127,6 +6222,69 @@ body {
   padding: 0;
   cursor: pointer;
   transition: transform 140ms ease, background 140ms ease, opacity 140ms ease;
+}
+
+.composer-plus {
+  background: transparent;
+  color: rgba(31, 31, 28, 0.82);
+}
+
+.composer-plus[aria-expanded="true"],
+.composer-plus:not(:disabled):hover {
+  background: rgba(34, 58, 49, 0.1);
+  color: var(--accent-green);
+}
+
+.composer-menu-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  z-index: 8;
+  display: grid;
+  gap: 6px;
+  width: 218px;
+  padding: 8px;
+  border: 1px solid rgba(31, 31, 28, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 54px rgba(31, 31, 28, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.composer-menu-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--graphite-800);
+  padding: 0 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.composer-menu-item svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.composer-menu-item:not(:disabled):hover,
+.composer-menu-item.active {
+  background: rgba(34, 58, 49, 0.1);
+  color: var(--accent-green);
+}
+
+.composer-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .composer-icon-button {
@@ -6150,6 +6308,13 @@ body {
   opacity: 0.42;
 }
 
+.composer--research-armed {
+  border-color: rgba(34, 58, 49, 0.32);
+  box-shadow:
+    0 0 0 4px rgba(34, 58, 49, 0.08),
+    var(--shadow-card);
+}
+
 .composer-send {
   background: rgba(34, 58, 49, 0.12);
   color: var(--accent-green);
@@ -6160,7 +6325,6 @@ body {
   color: #9f2424;
 }
 
-.composer-icon-button:not(:disabled):hover,
 .composer-send:not(:disabled):hover,
 .composer-stop-button:not(:disabled):hover {
   transform: translateY(-1px);
@@ -6177,7 +6341,7 @@ body {
   opacity: 0.45;
 }
 
-.composer-icon-button svg,
+.composer-plus svg,
 .composer-send svg,
 .composer-stop-button svg {
   width: 19px;
@@ -6220,5 +6384,234 @@ body {
   .reader-column,
   .composer-column {
     width: calc(100% - 20px);
+  }
+}
+
+/* Empty chat landing state. It is presentation-only and never becomes a chat message. */
+.conversation-panel--empty {
+  position: relative;
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(16px, 2.6vh, 24px);
+  padding: clamp(24px, 5vh, 54px) clamp(18px, 4vw, 52px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 64%, rgba(172, 214, 247, 0.46), transparent 34%),
+    radial-gradient(circle at 23% 78%, rgba(197, 222, 207, 0.24), transparent 30%),
+    radial-gradient(circle at 80% 24%, rgba(217, 188, 124, 0.13), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 247, 243, 0.94));
+}
+
+.conversation-panel--empty::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  border: 1px solid rgba(34, 58, 49, 0.06);
+  border-radius: 36px;
+  background:
+    linear-gradient(rgba(34, 58, 49, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 58, 49, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.conversation-panel--empty::after {
+  content: "";
+  position: absolute;
+  inset: -18% -12% -10%;
+  background:
+    radial-gradient(ellipse at 50% 58%, rgba(153, 205, 244, 0.38), transparent 33%),
+    radial-gradient(ellipse at 38% 70%, rgba(108, 164, 139, 0.12), transparent 31%),
+    radial-gradient(ellipse at 67% 42%, rgba(228, 204, 151, 0.14), transparent 28%);
+  filter: blur(18px);
+  opacity: 0.78;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  animation: emptyAuraDrift 18s ease-in-out infinite alternate;
+}
+
+.empty-chat-stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  width: min(820px, 100%);
+  text-align: center;
+  color: var(--graphite-900);
+}
+
+.empty-chat-line {
+  max-width: min(820px, calc(100vw - 72px));
+  color: rgba(31, 31, 28, 0.72);
+  font-family: "Cormorant Garamond", "Georgia", "Times New Roman", serif;
+  font-size: clamp(22px, 2.55vw, 34px);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.12;
+  white-space: nowrap;
+  animation: emptyHeroEnter 560ms ease-out both;
+}
+
+.composer-column--hero {
+  position: relative;
+  z-index: 2;
+  width: min(620px, 100%);
+  max-width: 620px;
+  padding-bottom: 0;
+  transform: none;
+  animation: emptyComposerEnter 620ms ease-out both;
+}
+
+.composer-column--hero .composer {
+  min-height: 60px;
+  border: 1px solid rgba(34, 58, 49, 0.12);
+  border-radius: 999px;
+  padding: 10px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(253, 251, 245, 0.9)),
+    radial-gradient(circle at top left, rgba(34, 58, 49, 0.08), transparent 42%);
+  box-shadow:
+    0 28px 90px rgba(31, 31, 28, 0.12),
+    0 14px 48px rgba(118, 177, 220, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.composer-column--hero .composer:focus-within {
+  border-color: rgba(69, 132, 179, 0.24);
+  box-shadow:
+    0 30px 96px rgba(31, 31, 28, 0.13),
+    0 18px 60px rgba(118, 177, 220, 0.28),
+    0 0 0 4px rgba(153, 205, 244, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.composer-column--hero .composer textarea {
+  height: 30px;
+  min-height: 30px;
+  font-size: 18px;
+  line-height: 30px;
+  padding: 0 4px;
+}
+
+.composer-column--hero .composer.composer--expanded {
+  min-height: 150px;
+  border-radius: 34px;
+  padding: 20px 18px 14px;
+}
+
+.composer-column--hero .composer.composer--expanded textarea {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: stretch;
+  height: auto;
+  min-height: 86px;
+  max-height: 210px;
+  font-size: 18px;
+  line-height: 1.58;
+  padding: 0 4px;
+}
+
+.composer-column--hero .composer.composer--expanded .composer-menu {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.composer-column--hero .composer.composer--expanded .composer-actions {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .conversation-panel--empty {
+    padding: 24px 14px;
+    gap: 16px;
+  }
+
+  .conversation-panel--empty::before {
+    inset: 14px;
+    border-radius: 28px;
+  }
+
+  .conversation-panel--empty::after {
+    inset: -10% -28% -8%;
+    filter: blur(14px);
+  }
+
+  .empty-chat-line {
+    max-width: calc(100vw - 36px);
+    font-size: clamp(18px, 5vw, 26px);
+  }
+
+  .composer-column--hero {
+    width: 100%;
+  }
+
+  .composer-column--hero .composer {
+    min-height: 58px;
+    border-radius: 999px;
+    padding: 9px 10px;
+  }
+
+  .composer-column--hero .composer.composer--expanded {
+    min-height: 142px;
+    border-radius: 30px;
+    padding: 18px 16px 13px;
+  }
+}
+
+@keyframes emptyAuraDrift {
+  0% {
+    opacity: 0.64;
+    transform: translate3d(-1.8%, -1%, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0.84;
+    transform: translate3d(1.6%, 1.2%, 0) scale(1.035);
+  }
+}
+
+@keyframes emptyHeroEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes emptyComposerEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-panel--empty::after,
+  .empty-chat-line,
+  .composer-column--hero {
+    animation: none;
+  }
+
+  .composer-column--hero .composer {
+    transition: none;
   }
 }

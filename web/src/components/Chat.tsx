@@ -26,12 +26,6 @@ function id() {
   return crypto.randomUUID();
 }
 
-const welcome: ChatMessage = {
-  id: id(),
-  role: "assistant",
-  content: "你可以让我查看关注列表、持仓、最新报告，或在确认后运行市场主线/个股研究。",
-};
-
 const SESSION_ID_KEY = "finclaw.session_id";
 const MEMORY_TARGET_LABELS: Record<string, string> = {
   profile: "用户画像",
@@ -50,7 +44,7 @@ function sessionId() {
 export function Chat() {
   const [session, setSession] = useState(sessionId);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([welcome]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageListVersion, setMessageListVersion] = useState(0);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessage | null>(null);
   const [active, setActive] = useState(false);
@@ -215,13 +209,13 @@ export function Chat() {
         if (cancelled) return;
         setSessions(freshSessions);
         lastServerMessageIdRef.current = rows.length ? Math.max(...rows.map((row) => row.message_id)) : 0;
-        setMessages(rows.length ? mergeServerMessages([welcome], rows) : [welcome]);
+        setMessages(rows.length ? mergeServerMessages([], rows) : []);
         setMessageListVersion((value) => value + 1);
         setActiveApproval(approvals.active_action);
         setQueuedApprovals(approvals.queued_actions);
       } catch {
         if (!cancelled) {
-          setMessages([welcome]);
+          setMessages([]);
           setMessageListVersion((value) => value + 1);
           setSessionError("当前会话加载失败");
         }
@@ -500,6 +494,11 @@ export function Chat() {
     });
   }
 
+  const hasConversation =
+    messages.some(isRenderableMessage) ||
+    Boolean(streamingMessage && isRenderableMessage(streamingMessage));
+  const showWelcome = !sessionLoading && !sessionError && !activeApproval && !hasConversation;
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -542,18 +541,24 @@ export function Chat() {
 
       <div className="workspace">
         <MarketSidebar />
-        <section className="conversation-panel">
-          <MessageList
-            listKey={`${session}:${messageListVersion}`}
-            messages={messages}
-            streamingMessage={streamingMessage}
-            active={active}
-            status={status}
-            activeMessageId={activeMessageId}
-            loading={sessionLoading}
-          />
+        <section className={`conversation-panel ${showWelcome ? "conversation-panel--empty" : ""}`}>
+          {showWelcome ? (
+            <div className="empty-chat-stage" aria-label="新会话引导">
+              <div className="empty-chat-line">welcome to Finclaw, How can i help?</div>
+            </div>
+          ) : (
+            <MessageList
+              listKey={`${session}:${messageListVersion}`}
+              messages={messages}
+              streamingMessage={streamingMessage}
+              active={active}
+              status={status}
+              activeMessageId={activeMessageId}
+              loading={sessionLoading}
+            />
+          )}
 
-          <div className="composer-column">
+          <div className={`composer-column ${showWelcome ? "composer-column--hero" : ""}`}>
             {activeApproval ? (
               <div className="composer approval-composer">
                 <div className="approval-composer-body">
@@ -574,6 +579,7 @@ export function Chat() {
                 onSubmit={(text) => void handleComposerSubmit(text)}
                 onStop={() => void handleStopGeneration()}
                 onStartResearch={(text) => void startResearchFromInput(text)}
+                placeholder={showWelcome ? "输入一个标的、主题、市场问题，或你的投资困惑..." : "Ask FinClaw..."}
               />
             )}
           </div>

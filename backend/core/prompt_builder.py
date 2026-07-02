@@ -22,7 +22,6 @@ MEMORY_DIR = DATA_DIR / "memory"
 STATIC_PROMPT_PARTS = [
     "core/identity.md",
     "core/mission.md",
-    "levels/level_1.md", 
     "core/behavior.md",
     "core/tool_use.md",
 ]
@@ -46,6 +45,8 @@ class PromptBuilder:
             # Profile 只注入 current_level + [SNAPSHOT]，不把 [LOG] 带入主对话上下文。
             profile_state = long_term_memory_service.read_profile_context()
             profile_content = str(profile_state.get("content") or "")
+            current_level = str(profile_state.get("current_level") or "Level 1")
+            level_definition = long_term_memory_service.read_level_definition(current_level)
             profile_count = 1 if profile_state.get("snapshot") else 0
             profile_updated = str(profile_state.get("last_updated") or "未知")
 
@@ -76,8 +77,9 @@ class PromptBuilder:
             if index_content:
                 loaded_sections.append("- **记忆索引**：已加载最新 index.md")
             if profile_content:
-                current_level = str(profile_state.get("current_level") or "Level 1")
                 loaded_sections.append(f"- **用户画像**：已加载人物志快照，当前 {current_level}，最后更新 {profile_updated}")
+            if level_definition:
+                loaded_sections.append(f"- **认知阶段策略**：已加载 {current_level} 的教练行为准则")
             if playbook_content:
                 loaded_sections.append(f"- **研究框架**：已加载当前研究架构（{playbook_dimension_count} 个维度），最后更新 {playbook_updated}")
             if convictions_content:
@@ -104,6 +106,15 @@ class PromptBuilder:
             if profile_content:
                 memory_context += "## Profile（用户画像）\n\n"
                 memory_context += profile_content
+                memory_context += "\n\n"
+
+            if level_definition:
+                memory_context += "## Cognition Level（当前认知阶段策略）\n\n"
+                memory_context += (
+                    "以下内容只用于决定如何进行认知成长干预。执行用户明线任务优先；"
+                    "不要把普通对话强行变成教学。\n\n"
+                )
+                memory_context += level_definition[:8000]
                 memory_context += "\n\n"
 
             if playbook_content:

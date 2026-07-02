@@ -54,7 +54,7 @@ class TradingGraphService:
     def __init__(self, client: TradingGraphClient | None = None) -> None:
         self.client = client or tradinggraph_client
         self.web_base = (os.getenv("TRADINGGRAPH_WEB_BASE") or DEFAULT_TRADINGGRAPH_WEB_BASE).rstrip("/")
-        self.root = self._resolve_root(os.getenv("TRADINGGRAPH_ROOT"), settings.finagent_root / "capabilities" / "tradinggraph")
+        self.root = self._resolve_root(os.getenv("TRADINGGRAPH_ROOT"), settings.project_root / "capabilities" / "tradinggraph")
         self.auto_start = os.getenv("TRADINGGRAPH_AUTO_START", "true").strip().lower() in {"1", "true", "yes", "on"}
         self.start_timeout = self._env_int("TRADINGGRAPH_START_TIMEOUT", 20)
         self.web_auto_start = os.getenv("TRADINGGRAPH_WEB_AUTO_START", "true").strip().lower() in {"1", "true", "yes", "on"}

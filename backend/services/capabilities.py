@@ -15,7 +15,6 @@ from backend.core.config import (
     BETTAFISH_ROOT,
     DATA_DIR,
     DEFAULT_PYTHON,
-    FINAGENT_ROOT,
     FINCLAW_API_BASE_URL,
     PROJECT_ROOT,
     TRADINGAGENTS_ROOT,
@@ -355,7 +354,6 @@ class CapabilityService:
     def _expand_value(self, value: str) -> str:
         replacements = {
             "project_root": PROJECT_ROOT,
-            "finagent_root": FINAGENT_ROOT,
             "bettafish_root": BETTAFISH_ROOT,
             "tradingagents_root": TRADINGAGENTS_ROOT,
         }

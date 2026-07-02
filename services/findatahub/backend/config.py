@@ -18,9 +18,6 @@ def _resolve_repo_path(value: str | None, default: Path) -> Path:
     return path.resolve()
 
 
-FINAGENT_ROOT = _resolve_repo_path(os.getenv("FINAGENT_ROOT"), REPO_ROOT)
-
-
 def _env_files() -> tuple[Path, ...]:
     candidates: list[Path] = []
     for name in ("FINDATAHUB_ENV_FILE", "FINCLAW_ENV_FILE"):
@@ -28,7 +25,7 @@ def _env_files() -> tuple[Path, ...]:
         if raw:
             candidates.append(Path(raw).expanduser().resolve())
     candidates.extend([
-        FINAGENT_ROOT / ".env",
+        REPO_ROOT / ".env",
         PROJECT_ROOT / ".env",
     ])
     seen: set[Path] = set()

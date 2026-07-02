@@ -4,7 +4,6 @@ from backend.core.env import settings
 
 
 PROJECT_ROOT = settings.project_root
-FINAGENT_ROOT = settings.finagent_root
 
 DATA_DIR = PROJECT_ROOT / "backend" / "data"
 ASSISTANT_DB = DATA_DIR / "finclaw.sqlite"

@@ -50,7 +50,6 @@ def _resolve_repo_path(value: str | None, default: Path) -> Path:
 @dataclass(frozen=True)
 class Settings:
     project_root: Path
-    finagent_root: Path
     datahub_mode: str
     datahub_mount_path: str
     datahub_base_url: str
@@ -108,7 +107,6 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    finagent_root = _resolve_repo_path(os.getenv("FINAGENT_ROOT"), PROJECT_ROOT)
     datahub_mode = os.getenv("FINCLAW_DATAHUB_MODE", "embedded").strip().lower()
     datahub_mount_path = os.getenv("FINCLAW_DATAHUB_MOUNT_PATH", "/datahub").strip() or "/datahub"
     if not datahub_mount_path.startswith("/"):
@@ -120,13 +118,12 @@ def load_settings() -> Settings:
         datahub_base_url = os.getenv("DATAHUB_BASE_URL", "http://127.0.0.1:8700").rstrip("/")
     return Settings(
         project_root=PROJECT_ROOT,
-        finagent_root=finagent_root,
         datahub_mode=datahub_mode,
         datahub_mount_path=datahub_mount_path,
         datahub_base_url=datahub_base_url,
         finclaw_api_base_url=finclaw_api_base_url,
-        bettafish_root=_resolve_repo_path(os.getenv("BETTAFISH_ROOT"), finagent_root / "capabilities" / "bettafish"),
-        tradingagents_root=_resolve_repo_path(os.getenv("TRADINGAGENTS_ROOT"), finagent_root / "capabilities" / "tradingagents_astock"),
+        bettafish_root=_resolve_repo_path(os.getenv("BETTAFISH_ROOT"), PROJECT_ROOT / "capabilities" / "bettafish"),
+        tradingagents_root=_resolve_repo_path(os.getenv("TRADINGAGENTS_ROOT"), PROJECT_ROOT / "capabilities" / "tradingagents_astock"),
         python_executable=os.getenv("FINCLAW_PYTHON", "python"),
         llm_api_key=os.getenv("FINCLAW_LLM_API_KEY", ""),
         llm_base_url=os.getenv("FINCLAW_LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/"),

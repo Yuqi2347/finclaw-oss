@@ -11,13 +11,13 @@ import requests
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..config import FINAGENT_ROOT
+from ..config import REPO_ROOT
 from ..providers.symbol import normalize_a_share_ticker
 from .market_news_service import MarketNewsService
 
 logger = logging.getLogger(__name__)
 
-_FINCLAW_ENV = FINAGENT_ROOT / ".env"
+_FINCLAW_ENV = REPO_ROOT / ".env"
 
 
 def _prime_web_search_env() -> None:

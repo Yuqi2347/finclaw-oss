@@ -111,6 +111,7 @@ _PASSTHROUGH_KWARGS = (
 
 # Provider base URLs and API key env vars
 _PROVIDER_CONFIG = {
+    "openai": ("https://api.openai.com/v1", ("OPENAI_API_KEY",)),
     "xai": ("https://api.x.ai/v1", ("XAI_API_KEY",)),
     "deepseek": ("https://api.deepseek.com", ("DEEPSEEK_API_KEY",)),
     "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", ("DASHSCOPE_API_KEY", "DASHSCOPE_CN_API_KEY")),
@@ -129,6 +130,16 @@ def _first_env_value(names: tuple[str, ...] | None) -> str | None:
         if value:
             return value
     return None
+
+
+def _resolve_api_key(provider_env_vars: tuple[str, ...] | None) -> str | None:
+    """Resolve auth from provider env first, then FinClaw's root LLM config.
+
+    FinClaw runs TradingAgents as an embedded capability. The canonical key
+    is FINCLAW_LLM_API_KEY; provider-specific variables remain supported for
+    standalone TradingAgents usage.
+    """
+    return _first_env_value(provider_env_vars) or os.environ.get("FINCLAW_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
 
 class OpenAIClient(BaseLLMClient):
@@ -162,7 +173,7 @@ class OpenAIClient(BaseLLMClient):
             default_base, api_key_env_vars = _PROVIDER_CONFIG[self.provider]
             llm_kwargs["base_url"] = self.base_url or default_base
             if api_key_env_vars:
-                api_key = _first_env_value(api_key_env_vars)
+                api_key = _resolve_api_key(api_key_env_vars)
                 if api_key:
                     llm_kwargs["api_key"] = api_key
             else:
@@ -179,6 +190,18 @@ class OpenAIClient(BaseLLMClient):
         # all model families. Third-party providers use Chat Completions.
         if self.provider == "openai":
             llm_kwargs["use_responses_api"] = True
+
+        if self.provider != "ollama" and not llm_kwargs.get("api_key"):
+            expected = ["FINCLAW_LLM_API_KEY"]
+            if self.provider in _PROVIDER_CONFIG:
+                env_vars = _PROVIDER_CONFIG[self.provider][1]
+                if env_vars:
+                    expected = list(env_vars) + expected
+            raise RuntimeError(
+                "TradingAgents LLM API key is not configured. "
+                f"provider={self.provider}, model={self.model}, "
+                f"expected_env={expected}"
+            )
 
         # DeepSeek's thinking-mode quirks live in their own subclass so the
         # base NormalizedChatOpenAI stays free of provider-specific branches.

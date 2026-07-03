@@ -1,25 +1,35 @@
-import { FormEvent, KeyboardEvent, memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { apiUrl, uploadAttachment } from "../api/finclaw";
+import type { AttachmentMeta } from "../types";
 
 type Props = {
+  sessionId: string;
   active: boolean;
   submitting: boolean;
   inputDisabled: boolean;
   submitDisabled: boolean;
   stopDisabled: boolean;
-  onSubmit: (text: string) => void;
+  referencedAttachments: AttachmentMeta[];
+  onRemoveReferencedAttachment: (attachmentId: string) => void;
+  onClearReferencedAttachments: () => void;
+  onSubmit: (text: string, attachments: AttachmentMeta[], referencedAttachmentIds: string[]) => void;
   onStop: () => void;
-  onStartResearch: (text: string) => void;
+  onStartResearch: (text: string, attachments: AttachmentMeta[], referencedAttachmentIds: string[]) => void;
   placeholder?: string;
 };
 
 let textMeasureCanvas: HTMLCanvasElement | undefined;
 
 export const Composer = memo(function Composer({
+  sessionId,
   active,
   submitting,
   inputDisabled,
   submitDisabled,
   stopDisabled,
+  referencedAttachments,
+  onRemoveReferencedAttachment,
+  onClearReferencedAttachments,
   onSubmit,
   onStop,
   onStartResearch,
@@ -29,14 +39,20 @@ export const Composer = memo(function Composer({
   const [researchArmed, setResearchArmed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [attachments, setAttachments] = useState<AttachmentMeta[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [privacyDismissed, setPrivacyDismissed] = useState(() => window.localStorage.getItem("finclaw.image_privacy_dismissed") === "1");
   const formRef = useRef<HTMLFormElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const modeRef = useRef<HTMLSpanElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const text = input.trim();
   const preparingSubmit = submitting && !active;
-  const sendLocked = preparingSubmit || submitDisabled;
+  const sendLocked = active || preparingSubmit || submitDisabled;
+  const hasImageContext = attachments.length > 0 || referencedAttachments.length > 0;
 
   useLayoutEffect(() => {
     const node = textareaRef.current;
@@ -46,10 +62,10 @@ export const Composer = memo(function Composer({
     const longestLineWidth = measureLongestLine(input, computed);
     const compactInputWidth = getCompactInputWidth(formRef.current, menuRef.current, modeRef.current, actionsRef.current, node);
     const exceedsCompactLine = Boolean(input.trim()) && longestLineWidth > compactInputWidth;
-    const nextExpanded = input.includes("\n") || exceedsCompactLine;
+    const nextExpanded = input.includes("\n") || exceedsCompactLine || hasImageContext || Boolean(uploadError);
     setExpanded(nextExpanded);
     node.style.height = `${Math.min(node.scrollHeight, nextExpanded ? 210 : 38)}px`;
-  }, [input, expanded]);
+  }, [input, expanded, hasImageContext, uploadError]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -64,18 +80,22 @@ export const Composer = memo(function Composer({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (sendLocked) return;
-    if (!text) return;
+    if (sendLocked || uploading) return;
+    if (!text && !hasImageContext) return;
     const shouldStartResearch = researchArmed && !active;
+    const currentAttachments = attachments;
+    const referencedIds = referencedAttachments.map((item) => item.attachment_id);
     setInput("");
+    setAttachments([]);
     setExpanded(false);
     setResearchArmed(false);
     setMenuOpen(false);
+    onClearReferencedAttachments();
     if (shouldStartResearch) {
-      onStartResearch(text);
+      onStartResearch(text, currentAttachments, referencedIds);
       return;
     }
-    onSubmit(text);
+    onSubmit(text, currentAttachments, referencedIds);
   }
 
   function startResearch() {
@@ -101,6 +121,53 @@ export const Composer = memo(function Composer({
     event.currentTarget.form?.requestSubmit();
   }
 
+  async function handleFiles(files: FileList | File[]) {
+    const incoming = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (!incoming.length) return;
+    const remaining = Math.max(0, 4 - attachments.length);
+    if (!remaining) {
+      setUploadError("单轮最多上传 4 张图片");
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    try {
+      const uploaded: AttachmentMeta[] = [];
+      for (const file of incoming.slice(0, remaining)) {
+        uploaded.push(await uploadAttachment(sessionId, file));
+      }
+      setAttachments((prev) => [...prev, ...uploaded].slice(0, 4));
+      if (!privacyDismissed) {
+        setPrivacyDismissed(false);
+      }
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "图片上传失败");
+    } finally {
+      setUploading(false);
+      setMenuOpen(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLFormElement>) {
+    const imageFiles = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    event.preventDefault();
+    void handleFiles(imageFiles);
+  }
+
+  function handleDrop(event: DragEvent<HTMLFormElement>) {
+    const imageFiles = Array.from(event.dataTransfer.files).filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    event.preventDefault();
+    void handleFiles(imageFiles);
+  }
+
+  function dismissPrivacyHint() {
+    window.localStorage.setItem("finclaw.image_privacy_dismissed", "1");
+    setPrivacyDismissed(true);
+  }
+
   return (
     <form
       ref={formRef}
@@ -110,7 +177,55 @@ export const Composer = memo(function Composer({
         expanded ? "composer--expanded" : "",
       ].filter(Boolean).join(" ")}
       onSubmit={submit}
+      onPaste={handlePaste}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={handleDrop}
     >
+      {(attachments.length || referencedAttachments.length || uploadError || (!privacyDismissed && attachments.length)) ? (
+        <div className="composer-attachments-panel">
+          {attachments.length ? (
+            <div className="composer-attachment-strip" aria-label="本轮上传图片">
+              {attachments.map((item) => (
+                <div className="composer-attachment-chip" key={item.attachment_id}>
+                  <img src={apiUrl(item.thumb_url || item.view_url)} alt="待发送图片" />
+                  <button
+                    type="button"
+                    onClick={() => setAttachments((prev) => prev.filter((candidate) => candidate.attachment_id !== item.attachment_id))}
+                    aria-label="移除图片"
+                    title="移除图片"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {referencedAttachments.length ? (
+            <div className="composer-reference-strip" aria-label="引用图片">
+              {referencedAttachments.map((item) => (
+                <span className="composer-reference-chip" key={item.attachment_id}>
+                  已引用图片
+                  <button
+                    type="button"
+                    onClick={() => onRemoveReferencedAttachment(item.attachment_id)}
+                    aria-label="取消引用图片"
+                    title="取消引用"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {!privacyDismissed && attachments.length ? (
+            <div className="composer-privacy-hint">
+              图片会随本轮消息发送给模型处理，请避免上传身份证、银行卡、完整账号等敏感内容。
+              <button type="button" onClick={dismissPrivacyHint}>知道了</button>
+            </div>
+          ) : null}
+          {uploadError ? <div className="composer-upload-error">{uploadError}</div> : null}
+        </div>
+      ) : null}
       <div className="composer-menu" ref={menuRef}>
         <button
           type="button"
@@ -134,13 +249,29 @@ export const Composer = memo(function Composer({
               <ResearchIcon />
               <span>{researchArmed ? "取消深度研究" : "本次使用深度研究"}</span>
             </button>
-            <button type="button" className="composer-menu-item" disabled role="menuitem">
+            <button
+              type="button"
+              className="composer-menu-item"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || inputDisabled || attachments.length >= 4}
+              role="menuitem"
+            >
               <AttachmentIcon />
-              <span>附件能力预留</span>
+              <span>{uploading ? "正在上传图片" : "上传图片"}</span>
             </button>
           </div>
         ) : null}
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        multiple
+        hidden
+        onChange={(event) => {
+          if (event.currentTarget.files) void handleFiles(event.currentTarget.files);
+        }}
+      />
       {researchArmed ? (
         <span
           ref={modeRef}
@@ -164,14 +295,14 @@ export const Composer = memo(function Composer({
         value={input}
         onChange={(event) => setInput(event.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={researchArmed ? "" : placeholder}
+        placeholder={researchArmed || hasImageContext ? "" : placeholder}
         disabled={inputDisabled}
         rows={1}
       />
       <div className="composer-actions" ref={actionsRef}>
         <button
           className="composer-send"
-          disabled={sendLocked || !text}
+          disabled={sendLocked || uploading || (!text && !hasImageContext)}
           aria-label={active ? "发送新指令并中断当前生成" : researchArmed ? "发送深度研究" : "发送"}
           title={active ? "发送新指令" : researchArmed ? "发送深度研究" : "发送"}
         >

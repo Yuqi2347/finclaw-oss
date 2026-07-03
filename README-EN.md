@@ -96,8 +96,9 @@ Future versions will strengthen cognition levels, tasks, review workflows, risk 
 | Agent Core | OpenAI-compatible tool-calling loop with SSE streaming, tool calls, approval cards, cancellation, and context governance |
 | Data Layer | Embedded FinDataHub for A-share quotes, fundamentals, news, market overview, watchlists, and portfolios |
 | Research Loop | Deep Research background threads with draft iteration, validator review, and research archives |
-| Memory Layer | User profile, investment framework, durable judgments, research consensus, and long-term memory extraction |
+| Memory Layer | User profile, investment framework, active investment judgments, cross-session memory extraction, and structured visual management |
 | Web Verification | Web search, source collection, and inline citations for verifying news, reports, social media claims, and external facts |
+| Multimodal Input | Image attachments can be used as conversation context, allowing users to upload screenshots, charts, or research materials for analysis and downstream tool use |
 | Capability Layer | Unified extension interface with permissions, health checks, timeouts, enablement, and professional research engines |
 | Observability | LLM requests, responses, token usage, tool calls, errors, and traces |
 | Frontend Workspace | Chat, Deep Research, research archives, long-term memory, capabilities, LLM logs, and data panels |

@@ -6,7 +6,6 @@ import {
   createSession,
   deleteSession,
   getSessionApprovals,
-  interruptSessionRun,
   listAnalysisJobs,
   listSessionMessages,
   listSessions,
@@ -15,7 +14,7 @@ import {
   streamConfirm,
 } from "../api/finclaw";
 import type { StreamHandlers } from "../api/finclaw";
-import type { AnalysisJob, ChatMessage, PendingAction, SessionSummary, StoredChatMessage, ToolCallRecord, WebSource } from "../types";
+import type { AnalysisJob, AttachmentMeta, ChatMessage, PendingAction, SessionSummary, StoredChatMessage, ToolCallRecord, WebSource } from "../types";
 import { Composer } from "./Composer";
 import { MarketSidebar } from "./MarketSidebar";
 import { MessageList } from "./MessageList";
@@ -57,6 +56,7 @@ export function Chat() {
   const [activeApproval, setActiveApproval] = useState<PendingAction | null>(null);
   const [queuedApprovals, setQueuedApprovals] = useState<PendingAction[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AnalysisJob[]>([]);
+  const [referencedAttachments, setReferencedAttachments] = useState<AttachmentMeta[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const lastServerMessageIdRef = useRef(0);
   const submitLockRef = useRef(false);
@@ -78,12 +78,14 @@ export function Chat() {
     return rows;
   }, []);
 
-  const refreshSessionMessages = useCallback(async () => {
+  const refreshSessionMessages = useCallback(async (): Promise<StoredChatMessage[]> => {
+    if (streamMessageRef.current) return [];
     const rows = await listSessionMessages(session, lastServerMessageIdRef.current);
     if (rows.length) {
       lastServerMessageIdRef.current = Math.max(...rows.map((row) => row.message_id));
       setMessages((prev) => mergeServerMessages(prev, rows));
     }
+    return rows;
   }, [session]);
 
   const refreshApprovals = useCallback(async () => {
@@ -112,21 +114,22 @@ export function Chat() {
     }
   }
 
-  function finalizeStreamingMessage(fallbackContent?: string) {
+  function finalizeStreamingMessage(fallbackContent?: string, append = true): ChatMessage | null {
     if (streamRafRef.current != null) {
       window.cancelAnimationFrame(streamRafRef.current);
       streamRafRef.current = null;
     }
     const current = streamMessageRef.current;
-    if (!current) return;
+    if (!current) return null;
     const content = streamContentRef.current || current.content || fallbackContent || "";
     const finalMessage = { ...current, content };
     streamMessageRef.current = null;
     streamContentRef.current = "";
     setStreamingMessage(null);
-    if (isRenderableMessage(finalMessage)) {
+    if (append && isRenderableMessage(finalMessage)) {
       setMessages((prev) => [...prev, finalMessage]);
     }
+    return finalMessage;
   }
 
   function clearStreamingMessage() {
@@ -195,6 +198,7 @@ export function Chat() {
     setActiveMessageId(null);
     setActiveApproval(null);
     setQueuedApprovals([]);
+    setReferencedAttachments([]);
     clearStreamingMessage();
     lastServerMessageIdRef.current = 0;
     abortRef.current?.abort();
@@ -321,26 +325,33 @@ export function Chat() {
       }
     }
 
-    finalizeStreamingMessage();
+    const finalMessage = finalizeStreamingMessage(undefined, false);
     setActive(false);
     setActiveMessageId(null);
     setStatus("");
     abortRef.current = null;
+    const syncedRows = await refreshSessionMessages().catch(() => []);
+    if (finalMessage && isRenderableMessage(finalMessage) && !hasEquivalentAssistantRow(syncedRows, finalMessage)) {
+      setMessages((prev) => (prev.some((msg) => isSameClientMessage(msg, finalMessage)) ? prev : [...prev, finalMessage]));
+    }
     await refreshApprovals().catch(() => {
       // Keep the chat usable even if approval polling fails once.
     });
   }
 
-  async function handleComposerSubmit(text: string) {
+  function handleReferenceAttachment(message: ChatMessage, attachmentId: string) {
+    const attachment = message.attachments?.find((item) => item.attachment_id === attachmentId);
+    if (!attachment) return;
+    setReferencedAttachments((prev) => {
+      if (prev.some((item) => item.attachment_id === attachmentId)) return prev;
+      return [...prev, { ...attachment, referenced: true }].slice(-4);
+    });
+  }
+
+  async function handleComposerSubmit(text: string, attachments: AttachmentMeta[] = [], referencedAttachmentIds: string[] = []) {
     if (stoppingRun) return;
     if (active) {
-      setMessages((prev) => [...prev, { id: id(), role: "user", content: text }]);
-      setStatus("已收到新指令，正在切换");
-      await interruptSessionRun(session, text);
-      abortRef.current?.abort();
-      await refreshSessionMessages().catch(() => {
-        // The periodic poll will retry.
-      });
+      setSessionError("当前回复仍在生成。请等待完成，或点击停止后再发送新消息。");
       return;
     }
 
@@ -348,9 +359,21 @@ export function Chat() {
     submitLockRef.current = true;
     setSubmitting(true);
     try {
-      if (!text) return;
-      setMessages((prev) => [...prev, { id: id(), role: "user", content: text }]);
-      await runAssistantStream((handlers, signal) => streamChatWithSignal(text, handlers, signal, session));
+      const visibleAttachments = [
+        ...attachments,
+        ...referencedAttachments.filter((item) => referencedAttachmentIds.includes(item.attachment_id)).map((item) => ({ ...item, referenced: true })),
+      ];
+      if (!text && !visibleAttachments.length) return;
+      setMessages((prev) => [...prev, { id: id(), role: "user", content: text, attachments: visibleAttachments }]);
+      await runAssistantStream((handlers, signal) => streamChatWithSignal(
+        text,
+        handlers,
+        signal,
+        session,
+        undefined,
+        attachments,
+        referencedAttachmentIds,
+      ));
     } finally {
       submitLockRef.current = false;
       setSubmitting(false);
@@ -374,18 +397,30 @@ export function Chat() {
     }
   }
 
-  async function startResearchFromInput(text: string) {
+  async function startResearchFromInput(text: string, attachments: AttachmentMeta[] = [], referencedAttachmentIds: string[] = []) {
     if (active || submitting || stoppingRun || sessionLoading) return;
-    if (!text) return;
+    const visibleAttachments = [
+      ...attachments,
+      ...referencedAttachments.filter((item) => referencedAttachmentIds.includes(item.attachment_id)).map((item) => ({ ...item, referenced: true })),
+    ];
+    if (!text && !visibleAttachments.length) return;
     setSubmitting(true);
     setStatus("正在生成研究确认卡片");
     try {
-      setMessages((prev) => [...prev, { id: id(), role: "user", content: `开启研究：${text}` }]);
+      setMessages((prev) => [...prev, { id: id(), role: "user", content: `开启研究：${text}`, attachments: visibleAttachments }]);
       const researchPrompt = [
         "请根据用户研究需求直接调用 start_research_thread；由你提炼 subject、research_goal、constraints 和工具权限，不要输出启动说明。",
-        `用户研究需求：${text}`,
+        `用户研究需求：${text || "请结合用户上传或引用的图片理解研究需求。"}`,
       ].join("\n");
-      await runAssistantStream((handlers, signal) => streamChatWithSignal(researchPrompt, handlers, signal, session, "deep_research"));
+      await runAssistantStream((handlers, signal) => streamChatWithSignal(
+        researchPrompt,
+        handlers,
+        signal,
+        session,
+        "deep_research",
+        attachments,
+        referencedAttachmentIds,
+      ));
     } catch (error) {
       setSessionError(error instanceof Error ? error.message : "研究确认卡片创建失败");
     } finally {
@@ -453,41 +488,8 @@ export function Chat() {
 
   async function onConfirm(actionId: string, approved: boolean, argumentsOverride?: Record<string, unknown>) {
     if (active) return;
-    if (!approved) {
-      const controller = new AbortController();
-      let cancelText = "";
-      abortRef.current = controller;
-      setActive(true);
-      setStatus("处理中");
-      try {
-        await streamConfirm(actionId, approved, {
-          onText: (text) => {
-            cancelText += text;
-          },
-          onStatus: setStatus,
-          onPendingAction: (action) => setActiveApproval(action),
-          onMemoryCandidate: (candidate) => {
-            window.dispatchEvent(new CustomEvent("finclaw:memory-candidate-created", { detail: candidate }));
-          },
-          onToolResult: (record) => {
-            const jobs = collectAnalysisJobs(record.result);
-            if (jobs.length) {
-              setAnalysisJobs((prev) => mergeJobs(prev, jobs));
-            }
-          },
-          onDone: () => setStatus("Done"),
-          onError: (message) => setStatus(message),
-        }, argumentsOverride);
-        setMessages((prev) => [...prev, { id: id(), role: "assistant", content: cancelText.trim() || "已取消本次操作。" }]);
-      } finally {
-        setActive(false);
-        setActiveMessageId(null);
-        setStatus("");
-        abortRef.current = null;
-        await refreshApprovals().catch(() => {});
-      }
-      return;
-    }
+    setActiveApproval(null);
+    setQueuedApprovals((prev) => prev.filter((item) => item.action_id !== actionId));
     await runAssistantStream((handlers) => streamConfirm(actionId, approved, handlers, argumentsOverride));
     await refreshApprovals().catch(() => {
       // Periodic interaction will recover.
@@ -555,30 +557,32 @@ export function Chat() {
               status={status}
               activeMessageId={activeMessageId}
               loading={sessionLoading}
+              onReferenceAttachment={handleReferenceAttachment}
             />
           )}
 
           <div className={`composer-column ${showWelcome ? "composer-column--hero" : ""}`}>
             {activeApproval ? (
-              <div className="composer approval-composer">
-                <div className="approval-composer-body">
-                  <div className="approval-kicker">等待确认</div>
-                  <PendingActionCard key={activeApproval.action_id} action={activeApproval} onConfirm={onConfirm} />
-                  {queuedApprovals.length > 0 && (
-                    <div className="approval-queue-note">还有 {queuedApprovals.length} 个操作排队，将在当前操作处理后依次确认。</div>
-                  )}
-                </div>
+              <div className="approval-panel">
+                <PendingActionCard key={activeApproval.action_id} action={activeApproval} onConfirm={onConfirm} />
+                {queuedApprovals.length > 0 && (
+                  <div className="approval-queue-note">还有 {queuedApprovals.length} 个操作排队，将在当前操作处理后依次确认。</div>
+                )}
               </div>
             ) : (
               <Composer
+                sessionId={session}
                 active={active}
                 submitting={submitting}
                 inputDisabled={sessionLoading}
                 submitDisabled={sessionLoading || stoppingRun}
                 stopDisabled={sessionLoading || stoppingRun}
-                onSubmit={(text) => void handleComposerSubmit(text)}
+                referencedAttachments={referencedAttachments}
+                onRemoveReferencedAttachment={(attachmentId) => setReferencedAttachments((prev) => prev.filter((item) => item.attachment_id !== attachmentId))}
+                onClearReferencedAttachments={() => setReferencedAttachments([])}
+                onSubmit={(text, attachments, referencedAttachmentIds) => void handleComposerSubmit(text, attachments, referencedAttachmentIds)}
                 onStop={() => void handleStopGeneration()}
-                onStartResearch={(text) => void startResearchFromInput(text)}
+                onStartResearch={(text, attachments, referencedAttachmentIds) => void startResearchFromInput(text, attachments, referencedAttachmentIds)}
                 placeholder={showWelcome ? "输入一个标的、主题、市场问题，或你的投资困惑..." : "Ask FinClaw..."}
               />
             )}
@@ -626,6 +630,7 @@ function isSessionBusyError(message: string): boolean {
 
 function isRenderableMessage(message: ChatMessage): boolean {
   if (message.content.trim()) return true;
+  if (message.attachments?.length) return true;
   if (message.sources?.length) return true;
   if (message.reportLinks?.length) return true;
   if (message.toolCalls?.some((call) => collectReportLinks(call.result).length > 0)) return true;
@@ -644,13 +649,14 @@ function mergeServerMessages(current: ChatMessage[], incoming: StoredChatMessage
   const serverIds = new Set(current.map((msg) => msg.serverId).filter((value): value is number => typeof value === "number"));
   const additions = incoming
     .filter((row) => !serverIds.has(row.message_id))
-    .filter((row) => !current.some((msg) => msg.role === row.role && msg.content.trim() === row.content.trim()))
-    .filter((row) => row.content.trim())
+    .filter((row) => !current.some((msg) => isSameMessageContent(msg, row)))
+    .filter((row) => row.content.trim() || row.attachments?.length)
     .map((row) => ({
       id: `server-${row.message_id}`,
       serverId: row.message_id,
       role: row.role,
       content: row.content,
+      attachments: row.attachments ?? [],
       toolCalls: row.tool_calls,
       reportLinks: row.report_links,
       sources: row.sources ?? [],
@@ -658,6 +664,33 @@ function mergeServerMessages(current: ChatMessage[], incoming: StoredChatMessage
     }));
   if (!additions.length) return current;
   return [...current, ...additions];
+}
+
+function isSameMessageContent(message: ChatMessage, row: StoredChatMessage): boolean {
+  if (message.role !== row.role) return false;
+  if (message.content.trim() !== row.content.trim()) return false;
+  const left = attachmentKey(message.attachments);
+  const right = attachmentKey(row.attachments);
+  return left === right;
+}
+
+function isSameClientMessage(left: ChatMessage, right: ChatMessage): boolean {
+  if (left.role !== right.role) return false;
+  if (left.content.trim() !== right.content.trim()) return false;
+  return attachmentKey(left.attachments) === attachmentKey(right.attachments);
+}
+
+function hasEquivalentAssistantRow(rows: StoredChatMessage[], message: ChatMessage): boolean {
+  if (message.role !== "assistant") return false;
+  return rows.some((row) => row.role === "assistant" && isSameMessageContent(message, row));
+}
+
+function attachmentKey(attachments: AttachmentMeta[] | undefined): string {
+  return (attachments ?? [])
+    .map((item) => item.attachment_id)
+    .filter(Boolean)
+    .sort()
+    .join("|");
 }
 
 function collectWebSources(payload: unknown): WebSource[] {

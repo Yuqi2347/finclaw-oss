@@ -1,6 +1,7 @@
 import type {
   AnalysisJob,
   ApprovalQueue,
+  AttachmentMeta,
   CapabilityModule,
   DashboardSidebarPayload,
   LlmLogDetail,
@@ -16,6 +17,12 @@ import type {
 
 export const API_BASE = import.meta.env.VITE_FINCLAW_API_BASE ?? "http://127.0.0.1:8800";
 const DASHBOARD_REQUEST_TIMEOUT_MS = 25000;
+
+export function apiUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 export type StreamHandlers = {
   onText: (text: string) => void;
@@ -55,8 +62,42 @@ export async function streamChatWithSignal(
   signal: AbortSignal,
   sessionId = "default",
   mode?: string,
+  attachments: AttachmentMeta[] = [],
+  referencedAttachmentIds: string[] = [],
 ): Promise<void> {
-  await streamPost("/api/chat/stream", { message, session_id: sessionId, mode }, handlers, signal);
+  await streamPost(
+    "/api/chat/stream",
+    {
+      message,
+      session_id: sessionId,
+      mode,
+      attachments,
+      referenced_attachment_ids: referencedAttachmentIds,
+    },
+    handlers,
+    signal,
+  );
+}
+
+export async function uploadAttachment(sessionId: string, file: File): Promise<AttachmentMeta> {
+  const form = new FormData();
+  form.append("session_id", sessionId);
+  form.append("file", file);
+  const response = await fetch(`${API_BASE}/api/attachments`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      detail = payload.detail || detail;
+    } catch {
+      // Ignore non-JSON error bodies.
+    }
+    throw new Error(`图片上传失败：${detail}`);
+  }
+  return response.json();
 }
 
 export async function streamConfirm(

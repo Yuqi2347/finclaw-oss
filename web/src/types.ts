@@ -61,6 +61,20 @@ export interface ToolCallRecord {
   result?: unknown;
 }
 
+export interface AttachmentMeta {
+  attachment_id: string;
+  session_id?: string | null;
+  type: "image" | string;
+  mime_type: string;
+  size?: number | null;
+  width?: number | null;
+  height?: number | null;
+  thumb_url?: string | null;
+  view_url?: string | null;
+  created_at?: string | null;
+  referenced?: boolean;
+}
+
 export interface AnalysisJob {
   job_id: string;
   job_type: string;
@@ -105,6 +119,7 @@ export interface ChatMessage {
   serverId?: number;
   role: Role;
   content: string;
+  attachments?: AttachmentMeta[];
   pendingActions?: PendingAction[];
   toolCalls?: ToolCallRecord[];
   reportLinks?: ReportLink[];
@@ -117,6 +132,7 @@ export interface StoredChatMessage {
   session_id: string;
   role: Role;
   content: string;
+  attachments?: AttachmentMeta[];
   tool_calls: ToolCallRecord[];
   report_links: ReportLink[];
   sources?: WebSource[];

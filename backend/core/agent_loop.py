@@ -10,10 +10,10 @@ from backend.core.env import settings
 from backend.core.function_schema import registry_to_openai_tools
 from backend.core.llm_client import LLMNotConfiguredError
 from backend.core.openai_stream import openai_stream_client
-from backend.core.request_classifier import request_classifier
 from backend.core.streaming import sse_event
 from backend.core.tool_gateway import tool_gateway
 from backend.services.cancellation import RunCancelled, cancellation_store
+from backend.services.attachments import attachment_service
 from backend.services.capabilities import capability_service
 from backend.services.memory import memory_manager
 from backend.services.observability import trace_store
@@ -22,74 +22,81 @@ from backend.services.sessions import chat_session_store
 
 MAX_AGENT_STEPS = 8
 MAX_REPEATED_TOOL_CALLS = 3
+FINAL_RESPONSE_TOOL = "final_response"
+ACTION_RUNTIME_PROTOCOL = """<action_runtime_protocol>
+你必须通过 tool calling 表达下一步动作：
+- 需要真实系统能力时，调用对应工具，不要用文字声称已经调用或已经生成确认卡片。
+- 已经可以直接回复用户时，调用 final_response，并把最终中文回复写入 content。
+- final_response 是结束本轮回答的伪工具；不要同时再请求用户确认。
+</action_runtime_protocol>"""
 logger = logging.getLogger(__name__)
 
 
 class AgentLoop:
-    def stream(self, message: str, session_id: str = "default", mode: str | None = None) -> Iterator[str]:
+    def stream(
+        self,
+        message: str,
+        session_id: str = "default",
+        mode: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+        referenced_attachment_ids: list[str] | None = None,
+    ) -> Iterator[str]:
         if not openai_stream_client.configured:
             yield sse_event("error", {"message": "FINCLAW_LLM_API_KEY is not configured"})
             return
+        try:
+            current_attachment_ids = self._attachment_ids_from_meta(attachments or [])
+            current_attachments = attachment_service.list_for_session(session_id, current_attachment_ids, referenced=False)
+            referenced_attachments = attachment_service.list_for_session(session_id, referenced_attachment_ids or [], referenced=True)
+        except (KeyError, PermissionError, ValueError) as exc:
+            yield sse_event("error", {"message": f"图片附件无效：{exc}"})
+            return
+        message_attachments = current_attachments + referenced_attachments
+        effective_message = message if message.strip() else (
+            "请理解用户上传或引用的图片，并根据上下文回答。" if message_attachments else ""
+        )
         normalized_mode = self._normalize_mode(mode)
-        run_id = chat_session_store.acquire_run(session_id, "user_message", {"message": message, "mode": normalized_mode})
+        run_id = chat_session_store.acquire_run(session_id, "user_message", {
+            "message": message,
+            "mode": normalized_mode,
+            "attachment_ids": [item.get("attachment_id") for item in message_attachments],
+        })
         if run_id is None:
             yield sse_event("error", {"message": "当前会话正在生成回答，请稍后再试。"})
             return
         cancellation_store.clear(session_id)
-        chat_session_store.append_message(session_id, "user", message)
+        chat_session_store.append_message(session_id, "user", message, attachments=message_attachments)
         cancellation_store.clear(session_id, run_id)
         trace_id = trace_store.start_trace(
             session_id,
             run_id,
             "user_message",
-            {"message": message, "mode": normalized_mode},
+            {
+                "message": message,
+                "mode": normalized_mode,
+                "attachment_ids": [item.get("attachment_id") for item in message_attachments],
+            },
         )
 
         messages: list[dict[str, Any]] = [
-            *memory_manager.build_context(session_id),
+            *memory_manager.build_context(session_id, extra_system=ACTION_RUNTIME_PROTOCOL),
         ]
+        if message_attachments:
+            try:
+                self._attach_images_to_latest_user_message(
+                    messages,
+                    text=effective_message,
+                    current_attachments=current_attachments,
+                    referenced_attachments=referenced_attachments,
+                )
+            except Exception as exc:
+                chat_session_store.finish_run(session_id, run_id, "failed")
+                trace_store.finish_trace(trace_id, status="failed", error=str(exc))
+                yield sse_event("error", {"message": f"图片处理失败：{exc}"})
+                return
         tools = self._openai_tools_for_mode(normalized_mode)
-
-        # 分类请求类型，决定 tool_choice
-        queue_state = chat_session_store.get_approval_queue(session_id)
-        has_pending = bool(queue_state.get("active_action_id"))
-        request_type = request_classifier.classify(message, has_pending)
-        tool_choice = request_classifier.get_tool_choice(request_type)
-
-        # 执行类和报告访问类请求，分别注入强制性系统消息
-        if request_type in {"execution", "artifact_access"}:
-            if request_type == "execution":
-                messages.append({
-                    "role": "system",
-                    "content": (
-                        "<critical_execution_mode>\n"
-                        "当前请求是执行类操作。你必须:\n"
-                        "1. 立即调用相应工具，不要先输出任何文本\n"
-                        "2. 禁止说'我来帮你''我已经生成确认卡片'等执行性文案\n"
-                        "3. 等待工具结果返回后再回复用户\n"
-                        "</critical_execution_mode>"
-                    )
-                })
-            else:
-                messages.append({
-                    "role": "system",
-                    "content": (
-                        "<critical_artifact_access_mode>\n"
-                        "当前请求是报告/链接访问类操作。你必须:\n"
-                        "1. 立即调用报告工具，不要先输出任何文本\n"
-                        "2. 打开/下载报告时优先调用 get_report_links\n"
-                        "3. 回答报告问题时优先调用 query_report；只有精读指定章节才使用 get_report_detail + read_report_section\n"
-                        "4. 禁止自行拼接 localhost、端口号、/reports 路径或下载 URL\n"
-                        "5. 不要在文本中伪造报告链接；真实链接只能来自工具结果\n"
-                        "</critical_artifact_access_mode>"
-                    )
-                })
-
-        trace_store.event(trace_id, "request.classified", {
-            "type": request_type,
-            "tool_choice": tool_choice,
-            "has_pending": has_pending
-        })
+        tool_choice = "required"
+        trace_store.event(trace_id, "agent.protocol", {"tool_choice": tool_choice, "final_response_tool": FINAL_RESPONSE_TOOL})
         trace_store.event(trace_id, "agent.turn.started", {"session_id": session_id, "run_id": run_id})
         yield sse_event("message_start", {"session_id": session_id})
         yield sse_event("status_delta", {"phase": "context", "message": "正在整理上下文"})
@@ -125,22 +132,40 @@ class AgentLoop:
 
                 yield sse_event("status_delta", {"phase": "llm", "message": "正在思考"})
 
-                # 第一轮使用动态 tool_choice，后续轮使用 auto
-                current_tool_choice = tool_choice if step_index == 0 else "auto"
-
                 assistant_message, finish_reason = yield from self._run_one_llm_turn(
                     messages,
                     tools,
                     final_text_parts,
                     final_reasoning_parts,
                     trace_id=trace_id,
-                    tool_choice=current_tool_choice,
+                    tool_choice=tool_choice,
                 )
                 messages.append(assistant_message)
 
                 tool_calls = assistant_message.get("tool_calls") or []
                 if finish_reason == "tool_calls" or tool_calls:
-                    for call in tool_calls:
+                    real_tool_calls = [call for call in tool_calls if not self._is_final_response_call(call)]
+                    if tool_calls and not real_tool_calls:
+                        content = self._final_response_content(tool_calls[0])
+                        if content:
+                            final_text_parts.append(content)
+                            yield sse_event("text_delta", {"text": content})
+                        self._persist_assistant(
+                            session_id,
+                            "".join(final_text_parts),
+                            tool_records,
+                            self._collapse_reasoning(final_reasoning_parts),
+                        )
+                        trace_store.event(trace_id, "agent.turn.completed", {"finish_reason": "final_response", "tool_count": len(tool_records)})
+                        trace_store.finish_trace(trace_id)
+                        yield sse_event("message_done", {})
+                        chat_session_store.finish_run(session_id, run_id)
+                        run_finished = True
+                        self._kick_continuation_worker()
+                        self._fire_memory_hook(session_id, run_id)
+                        return
+                    waiting_approvals: list[dict[str, Any]] = []
+                    for call in real_tool_calls:
                         if self._is_repeated_tool_call(call, tool_call_fingerprints):
                             payload = self._loop_break_payload(call)
                             tool_records.append({"tool": call["function"]["name"], "result": payload})
@@ -166,44 +191,26 @@ class AgentLoop:
                         }
                         messages.append(tool_message)
 
-                        # P1: 如果是 approval_required，注入系统消息说明
                         if result_payload.get("status") == "approval_required":
                             action = result_payload.get("action") or {}
-                            system_message = {
-                                "role": "system",
-                                "content": (
-                                    "<system_notification>\n"
-                                    f"工具 {call['function']['name']} 需要用户确认。\n"
-                                    f"系统已自动生成确认卡片 (action_id: {action.get('action_id')})。\n"
-                                    "你不需要:\n"
-                                    "- 说'我已经生成确认卡片'\n"
-                                    "- 说'请点击确认按钮'\n"
-                                    "- 描述确认流程\n"
-                                    "你应该:\n"
-                                    "- 简要说明需要确认的操作和原因\n"
-                                    "- 等待用户确认后，系统会自动执行并返回结果\n"
-                                    "</system_notification>"
-                                )
-                            }
-                            messages.append(system_message)
-
-                            trace_store.event(trace_id, "system_message.approval_injected", {
+                            waiting_approvals.append(action)
+                            trace_store.event(trace_id, "approval.queued", {
                                 "tool": call["function"]["name"],
                                 "action_id": action.get("action_id")
                             })
-
-                            self._persist_assistant(
-                                session_id,
-                                "".join(final_text_parts),
-                                tool_records,
-                                self._collapse_reasoning(final_reasoning_parts),
-                            )
-                            trace_store.event(trace_id, "agent.turn.waiting_approval", {"tool": call["function"]["name"]})
-                            trace_store.finish_trace(trace_id, status="waiting_approval")
-                            yield sse_event("message_done", {"waiting_approval": True})
-                            chat_session_store.finish_run(session_id, run_id, "waiting_approval")
-                            run_finished = True
-                            return
+                    if waiting_approvals:
+                        self._persist_assistant(
+                            session_id,
+                            "".join(final_text_parts),
+                            tool_records,
+                            self._collapse_reasoning(final_reasoning_parts),
+                        )
+                        trace_store.event(trace_id, "agent.turn.waiting_approval", {"count": len(waiting_approvals)})
+                        trace_store.finish_trace(trace_id, status="waiting_approval")
+                        yield sse_event("message_done", {"waiting_approval": True})
+                        chat_session_store.finish_run(session_id, run_id, "waiting_approval")
+                        run_finished = True
+                        return
                     continue
 
                 self._persist_assistant(
@@ -266,6 +273,61 @@ class AgentLoop:
                 trace_store.finish_trace(trace_id, status="cancelled", error="stream disconnected before run cleanup")
                 chat_session_store.finish_run(session_id, run_id, "cancelled")
 
+    def _attachment_ids_from_meta(self, attachments: list[dict[str, Any]]) -> list[str]:
+        ids: list[str] = []
+        for item in attachments:
+            if not isinstance(item, dict):
+                continue
+            attachment_id = str(item.get("attachment_id") or "").strip()
+            if attachment_id and attachment_id not in ids:
+                ids.append(attachment_id)
+        if len(ids) > 4:
+            raise ValueError("单轮最多上传 4 张图片")
+        return ids
+
+    def _attach_images_to_latest_user_message(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        text: str,
+        current_attachments: list[dict[str, Any]],
+        referenced_attachments: list[dict[str, Any]],
+    ) -> None:
+        total = len(current_attachments) + len(referenced_attachments)
+        if total > 8:
+            raise ValueError("单轮最多处理 8 张图片（含引用图片）")
+        parts: list[dict[str, Any]] = [
+            {"type": "text", "text": text.strip() or "请理解用户上传或引用的图片，并根据上下文回答。"}
+        ]
+        if current_attachments:
+            parts.append({"type": "text", "text": "用户本轮上传的图片如下。"})
+            parts.extend(self._image_parts(current_attachments))
+        if referenced_attachments:
+            parts.append({"type": "text", "text": "用户显式引用的历史图片如下。"})
+            parts.extend(self._image_parts(referenced_attachments))
+
+        for index in range(len(messages) - 1, -1, -1):
+            if messages[index].get("role") == "user":
+                messages[index]["content"] = parts
+                return
+        messages.append({"role": "user", "content": parts})
+
+    def _image_parts(self, attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        parts: list[dict[str, Any]] = []
+        for item in attachments:
+            attachment_id = str(item.get("attachment_id") or "")
+            if not attachment_id:
+                continue
+            data_url = attachment_service.read_as_data_url(attachment_id)
+            parts.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": data_url,
+                    "detail": "auto",
+                },
+            })
+        return parts
+
     def stream_after_approval(
         self,
         tool_name: str,
@@ -302,7 +364,7 @@ class AgentLoop:
         )
 
         messages: list[dict[str, Any]] = [
-            *memory_manager.build_context(session_id),
+            *memory_manager.build_context(session_id, extra_system=ACTION_RUNTIME_PROTOCOL),
             {
                 "role": "user",
                 "content": (
@@ -369,13 +431,33 @@ class AgentLoop:
                     final_text_parts,
                     final_reasoning_parts,
                     trace_id=trace_id,
-                    tool_choice="auto",
+                    tool_choice="required",
                 )
                 messages.append(assistant_message)
 
                 tool_calls = assistant_message.get("tool_calls") or []
                 if finish_reason == "tool_calls" or tool_calls:
-                    for call in tool_calls:
+                    real_tool_calls = [call for call in tool_calls if not self._is_final_response_call(call)]
+                    if tool_calls and not real_tool_calls:
+                        content = self._final_response_content(tool_calls[0])
+                        if content:
+                            final_text_parts.append(content)
+                            yield sse_event("text_delta", {"text": content})
+                        self._persist_assistant(
+                            session_id,
+                            "".join(final_text_parts),
+                            tool_records,
+                            self._collapse_reasoning(final_reasoning_parts),
+                        )
+                        trace_store.event(trace_id, "agent.turn.completed", {"finish_reason": "final_response", "tool_count": len(tool_records)})
+                        trace_store.finish_trace(trace_id)
+                        yield sse_event("message_done", {})
+                        chat_session_store.finish_run(session_id, run_id)
+                        self._kick_continuation_worker()
+                        self._fire_memory_hook(session_id, run_id)
+                        return
+                    waiting_approvals: list[dict[str, Any]] = []
+                    for call in real_tool_calls:
                         if self._is_repeated_tool_call(call, tool_call_fingerprints):
                             payload = self._loop_break_payload(call)
                             tool_records.append({"tool": call["function"]["name"], "result": payload})
@@ -401,43 +483,25 @@ class AgentLoop:
                         }
                         messages.append(tool_message)
 
-                        # P1: 如果是 approval_required，注入系统消息说明
                         if result_payload.get("status") == "approval_required":
                             action = result_payload.get("action") or {}
-                            system_message = {
-                                "role": "system",
-                                "content": (
-                                    "<system_notification>\n"
-                                    f"工具 {call['function']['name']} 需要用户确认。\n"
-                                    f"系统已自动生成确认卡片 (action_id: {action.get('action_id')})。\n"
-                                    "你不需要:\n"
-                                    "- 说'我已经生成确认卡片'\n"
-                                    "- 说'请点击确认按钮'\n"
-                                    "- 描述确认流程\n"
-                                    "你应该:\n"
-                                    "- 简要说明需要确认的操作和原因\n"
-                                    "- 等待用户确认后，系统会自动执行并返回结果\n"
-                                    "</system_notification>"
-                                )
-                            }
-                            messages.append(system_message)
-
-                            trace_store.event(trace_id, "system_message.approval_injected", {
+                            waiting_approvals.append(action)
+                            trace_store.event(trace_id, "approval.queued", {
                                 "tool": call["function"]["name"],
                                 "action_id": action.get("action_id")
                             })
-
-                            self._persist_assistant(
-                                session_id,
-                                "".join(final_text_parts),
-                                tool_records,
-                                self._collapse_reasoning(final_reasoning_parts),
-                            )
-                            trace_store.event(trace_id, "agent.turn.waiting_approval", {"tool": call["function"]["name"]})
-                            trace_store.finish_trace(trace_id, status="waiting_approval")
-                            yield sse_event("message_done", {"waiting_approval": True})
-                            chat_session_store.finish_run(session_id, run_id, "waiting_approval")
-                            return
+                    if waiting_approvals:
+                        self._persist_assistant(
+                            session_id,
+                            "".join(final_text_parts),
+                            tool_records,
+                            self._collapse_reasoning(final_reasoning_parts),
+                        )
+                        trace_store.event(trace_id, "agent.turn.waiting_approval", {"count": len(waiting_approvals)})
+                        trace_store.finish_trace(trace_id, status="waiting_approval")
+                        yield sse_event("message_done", {"waiting_approval": True})
+                        chat_session_store.finish_run(session_id, run_id, "waiting_approval")
+                        return
                     continue
 
                 self._persist_assistant(
@@ -567,7 +631,7 @@ class AgentLoop:
         cancellation_store.clear(session_id)
         trace_id = trace_store.start_trace(session_id, run_id, event_type, {"event": payload})
         messages: list[dict[str, Any]] = [
-            *memory_manager.build_context(session_id),
+            *memory_manager.build_context(session_id, extra_system=ACTION_RUNTIME_PROTOCOL),
             {
                 "role": "user",
                 "content": self._continuation_prompt(event_type, payload),
@@ -592,12 +656,27 @@ class AgentLoop:
                     final_text_parts,
                     final_reasoning_parts,
                     trace_id=trace_id,
-                    tool_choice="auto",
+                    tool_choice="required",
                 )
                 messages.append(assistant_message)
                 tool_calls = assistant_message.get("tool_calls") or []
                 if finish_reason == "tool_calls" or tool_calls:
-                    for call in tool_calls:
+                    real_tool_calls = [call for call in tool_calls if not self._is_final_response_call(call)]
+                    if tool_calls and not real_tool_calls:
+                        content = self._final_response_content(tool_calls[0])
+                        if content:
+                            final_text_parts.append(content)
+                        self._persist_assistant(
+                            session_id,
+                            "".join(final_text_parts),
+                            tool_records,
+                            self._collapse_reasoning(final_reasoning_parts),
+                        )
+                        chat_session_store.finish_run(session_id, run_id)
+                        trace_store.finish_trace(trace_id)
+                        self._fire_memory_hook(session_id)
+                        return "completed"
+                    for call in real_tool_calls:
                         if self._is_repeated_tool_call(call, tool_call_fingerprints):
                             result_payload = self._loop_break_payload(call)
                             tool_records.append({"tool": call["function"]["name"], "result": result_payload})
@@ -784,6 +863,8 @@ class AgentLoop:
         function = call["function"]
         name = function["name"]
         arguments = function.get("arguments") or "{}"
+        if name == FINAL_RESPONSE_TOOL:
+            return {"status": "ok", "result": {"content": self._final_response_content(call)}}
         if not self._tool_allowed_in_mode(name, mode):
             payload = {
                 "status": "error",
@@ -843,6 +924,8 @@ class AgentLoop:
         function = call["function"]
         name = function["name"]
         arguments = function.get("arguments") or "{}"
+        if name == FINAL_RESPONSE_TOOL:
+            return {"status": "ok", "result": {"content": self._final_response_content(call)}}
         if not self._tool_allowed_in_mode(name, mode):
             if trace_id:
                 trace_store.event(trace_id, "tool.call.blocked_by_mode", {"name": name, "mode": mode}, level="warn")
@@ -875,9 +958,47 @@ class AgentLoop:
     def _openai_tools_for_mode(self, mode: str | None) -> list[dict[str, Any]]:
         exclude = set() if mode == "deep_research" else {"start_research_thread"}
         exclude.update(capability_service.disabled_external_tools())
-        return registry_to_openai_tools(tool_gateway.registry, exclude=exclude)
+        tools = registry_to_openai_tools(tool_gateway.registry, exclude=exclude)
+        tools.append(self._final_response_tool_schema())
+        return tools
+
+    def _final_response_tool_schema(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": FINAL_RESPONSE_TOOL,
+                "description": "结束本轮回答。只有在不需要继续调用真实工具时使用；content 必须是面向用户的最终中文回复。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "最终回复内容。不要描述并未执行的工具调用，不要声称已经生成确认卡片。",
+                        }
+                    },
+                    "required": ["content"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    def _is_final_response_call(self, call: dict[str, Any]) -> bool:
+        function = call.get("function") or {}
+        return str(function.get("name") or "") == FINAL_RESPONSE_TOOL
+
+    def _final_response_content(self, call: dict[str, Any]) -> str:
+        raw = ((call.get("function") or {}).get("arguments") or "{}").strip()
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return raw
+        if isinstance(parsed, dict):
+            return str(parsed.get("content") or "").strip()
+        return str(parsed or "").strip()
 
     def _tool_allowed_in_mode(self, tool_name: str, mode: str | None) -> bool:
+        if tool_name == FINAL_RESPONSE_TOOL:
+            return True
         if tool_name in capability_service.disabled_external_tools():
             return False
         return tool_name != "start_research_thread" or mode == "deep_research"

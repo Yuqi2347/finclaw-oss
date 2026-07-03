@@ -37,10 +37,26 @@ class ToolCall(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
+class AttachmentMeta(BaseModel):
+    attachment_id: str
+    session_id: str | None = None
+    type: str = "image"
+    mime_type: str
+    size: int | None = None
+    width: int | None = None
+    height: int | None = None
+    thumb_url: str | None = None
+    view_url: str | None = None
+    created_at: str | None = None
+    referenced: bool = False
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     mode: str | None = None
+    attachments: list[AttachmentMeta] = Field(default_factory=list)
+    referenced_attachment_ids: list[str] = Field(default_factory=list)
 
 
 class SessionCreateRequest(BaseModel):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import warnings
@@ -26,11 +27,37 @@ def load_env(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
+def infer_llm_provider(base_url: str, model: str) -> str:
+    value = f"{base_url} {model}".lower()
+    if "minimax" in value or "mimo" in value:
+        return "minimax"
+    if "deepseek" in value:
+        return "deepseek"
+    if "dashscope" in value or "qwen" in value:
+        return "qwen"
+    if "z.ai" in value or "zhipu" in value or "glm" in value:
+        return "glm"
+    if "openrouter" in value:
+        return "openrouter"
+    if "x.ai" in value or "grok" in value:
+        return "xai"
+    return "openai"
+
+
 def build_config(default_config: dict) -> dict:
     config = default_config.copy()
-    config["llm_provider"] = "minimax"
-    config["deep_think_llm"] = "MiniMax-M2.7"
-    config["quick_think_llm"] = "MiniMax-M2.7-highspeed"
+    base_url = os.getenv("FINCLAW_LLM_BASE_URL", "").strip().rstrip("/")
+    model = os.getenv("FINCLAW_LLM_MODEL", "").strip() or default_config.get("deep_think_llm")
+    provider = (
+        os.getenv("FINCLAW_LLM_PROVIDER", "").strip().lower()
+        or infer_llm_provider(base_url, model or "")
+    )
+
+    config["llm_provider"] = provider
+    config["deep_think_llm"] = model
+    config["quick_think_llm"] = model
+    if base_url:
+        config["backend_url"] = base_url
     config["data_vendors"] = {
         "core_stock_apis": "a_stock",
         "technical_indicators": "a_stock",

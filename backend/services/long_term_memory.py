@@ -665,7 +665,20 @@ class LongTermMemoryService:
 
     def _normalize_profile_log_content(self, content: str, today: str) -> str:
         body = str(content or "").strip()
+        body = re.sub(r"^\s*```(?:json|markdown|md)?\s*", "", body, flags=re.IGNORECASE)
+        body = re.sub(r"\s*```\s*$", "", body)
         body = re.sub(r"^\s*[-*]\s+", "", body)
+        if re.search(r"(?m)^\s{0,3}#{1,6}\s+\S+", body):
+            raise ValueError("profile LOG 只能写入单条观察，不能包含 Markdown 标题或整份人物志文档")
+        if re.search(r"(?m)^\s*<!--", body):
+            raise ValueError("profile LOG 只能写入观察正文，不能包含元数据注释")
+        body = re.sub(r"\s*\n+\s*", " ", body).strip()
+        bracket_date = re.match(r"^\[(\d{4}-\d{2}-\d{2})\]\s*\|\s*(.+)$", body)
+        if bracket_date:
+            return f"{bracket_date.group(1)} | {bracket_date.group(2).strip()}"
+        duplicate_date = re.match(r"^(\d{4}-\d{2}-\d{2})\s*\|\s*\[\1\]\s*\|\s*(.+)$", body)
+        if duplicate_date:
+            return f"{duplicate_date.group(1)} | {duplicate_date.group(2).strip()}"
         if re.match(r"^\d{4}-\d{2}-\d{2}\s*\|", body):
             return body
         return f"{today} | {body}"
@@ -883,8 +896,8 @@ class LongTermMemoryService:
             architecture = self._extract_playbook_architecture(content)
             count = len([line for line in architecture.splitlines() if re.match(r"^\s*维度\S*[：:]", line)])
             return {"chapter_count": count, "dimension_count": count, "count": count, **base}
-        active_count = len([line for line in lines if re.match(r"^###\s+\[active\]", line, re.IGNORECASE)])
-        watching_count = len([line for line in lines if re.match(r"^###\s+\[watching\]", line, re.IGNORECASE)])
+        active_count = _count_entries_under_heading(content, "Active")
+        watching_count = _count_entries_under_heading(content, "Watching")
         stale_count = len([line for line in lines if re.match(r"^###\s+\[stale\]", line, re.IGNORECASE)])
         return {
             "active_count": active_count,
@@ -912,6 +925,8 @@ class LongTermMemoryService:
 
     def _append_core_entry(self, existing: str, candidate: dict[str, Any]) -> str:
         entry = self._render_core_entry(candidate)
+        if candidate.get("target") == "convictions":
+            return _insert_markdown_entry_under_heading(existing, "Active", entry)
         return existing.rstrip() + ("\n\n" if existing.strip() else "") + entry + "\n"
 
     def _render_core_entry(self, candidate: dict[str, Any]) -> str:
@@ -962,6 +977,9 @@ class LongTermMemoryService:
             raise ValueError("Convictions 候选内容不能为空")
         if operation in {"ARCHIVE", "CONFLICT", "NOOP"}:
             return
+        first_heading = next((line.strip() for line in text.splitlines() if line.strip().startswith("#")), "")
+        if re.match(r"^##\s+(Active|Watching|Archived)\s*$", first_heading, re.IGNORECASE):
+            raise ValueError("Convictions 候选只提交单条判断正文，不要包含 ## Active/Watching/Archived 分区标题")
         required_labels = ("判断", "失效条件", "来源")
         missing = [label for label in required_labels if f"**{label}**" not in text and f"{label}：" not in text and f"{label}:" not in text]
         if missing:
@@ -1368,6 +1386,39 @@ def _remove_markdown_entry(content: str, fragment: str) -> tuple[str, str]:
     return (remaining + "\n" if remaining else ""), archived
 
 
+def _insert_markdown_entry_under_heading(content: str, heading: str, entry: str) -> str:
+    text = str(content or "").rstrip()
+    block = str(entry or "").strip()
+    if not block:
+        return text + ("\n" if text else "")
+
+    pattern = re.compile(rf"(?m)^##\s+{re.escape(heading)}\s*$")
+    match = pattern.search(text)
+    if not match:
+        return text + ("\n\n" if text else "") + f"## {heading}\n\n{block}\n"
+
+    next_heading = re.search(r"(?m)^##\s+", text[match.end():])
+    section_end = match.end() + next_heading.start() if next_heading else len(text)
+    section = text[match.end():section_end].strip()
+    if section in {"", "暂无。", "None", "- None"}:
+        replacement = f"\n\n{block}\n\n"
+    else:
+        replacement = f"\n\n{section}\n\n{block}\n\n"
+    return text[:match.end()] + replacement + text[section_end:].lstrip()
+
+
+def _count_entries_under_heading(content: str, heading: str) -> int:
+    text = str(content or "")
+    pattern = re.compile(rf"(?m)^##\s+{re.escape(heading)}\s*$")
+    match = pattern.search(text)
+    if not match:
+        return 0
+    next_heading = re.search(r"(?m)^##\s+", text[match.end():])
+    section_end = match.end() + next_heading.start() if next_heading else len(text)
+    section = text[match.end():section_end]
+    return len(re.findall(r"(?m)^###\s+", section))
+
+
 def _extract_markdown_field(content: str, label: str) -> str:
     pattern = re.compile(rf"(?ms)^-\s+\*\*{re.escape(label)}\*\*\s*[：:]\s*(.*?)(?=^\-\s+\*\*|\Z)")
     match = pattern.search(str(content or ""))
@@ -1378,7 +1429,7 @@ def _extract_markdown_field(content: str, label: str) -> str:
 
 def _render_conviction_archive_entry(entry: str, reason: str, candidate: dict[str, Any]) -> str:
     body = str(entry or "").strip()
-    title_match = re.search(r"^###\s+\[[^\]]+\]\s*(.+)$", body, re.MULTILINE)
+    title_match = re.search(r"^###\s+(?:\[[^\]]+\]\s*)?(.+)$", body, re.MULTILINE)
     title = title_match.group(1).strip() if title_match else "未命名投资判断"
     judgement = _extract_markdown_field(body, "判断")
     source = _extract_markdown_field(body, "来源")

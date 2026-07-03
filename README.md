@@ -94,8 +94,9 @@ FinClaw 希望帮助用户逐步形成自己的投资系统。长期记忆不只
 | Agent Core | OpenAI-compatible tool-calling 主循环，支持 SSE 流式输出、工具调用、确认卡片、中断控制和上下文治理 |
 | Data Layer | 内嵌 FinDataHub，提供 A 股行情、财务、新闻、市场概览、关注列表和组合数据 |
 | Research Loop | Deep Research 后台线程，支持研究草稿迭代、验证 Agent 审稿和研究档案沉淀 |
-| Memory Layer | 用户画像、投资框架、跨会话判断、研究共识和长期记忆提取 |
+| Memory Layer | 用户画像、研究框架、当前投资判断与跨会话记忆提取，并支持结构化可视化管理 |
 | Web Verification | 联网搜索、来源整理和正文引用，用于验证新闻、研报、社媒信息和外部事实 |
+| Multimodal Input | 支持图片附件作为对话上下文输入，用户可上传截图、图表、资料图片并让 Agent 基于图片内容继续分析或调用工具 |
 | Capability Layer | 统一扩展能力接口，支持权限、健康检查、超时、启用状态和专业研究引擎接入 |
 | Observability | LLM 请求、响应、token、工具调用、错误和 trace 记录 |
 | Frontend Workspace | 对话、深度研究、研究档案、长期记忆、能力插件、LLM 日志和数据面板 |

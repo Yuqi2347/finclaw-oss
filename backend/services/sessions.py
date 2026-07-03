@@ -41,6 +41,7 @@ class StoredMessage:
     report_links: list[dict[str, Any]]
     sources: list[dict[str, Any]]
     citations: list[dict[str, Any]]
+    attachments: list[dict[str, Any]]
     created_at: str
 
 
@@ -60,6 +61,7 @@ class ChatSessionStore:
         report_links: list[dict[str, Any]] | None = None,
         sources: list[dict[str, Any]] | None = None,
         citations: list[dict[str, Any]] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> int:
         now = _now()
         with self._lock, self._connect() as conn:
@@ -75,9 +77,10 @@ class ChatSessionStore:
                     report_links_json,
                     sources_json,
                     citations_json,
+                    attachments_json,
                     created_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -88,6 +91,7 @@ class ChatSessionStore:
                     json.dumps(report_links or [], ensure_ascii=False, default=str),
                     json.dumps(sources or [], ensure_ascii=False, default=str),
                     json.dumps(citations or [], ensure_ascii=False, default=str),
+                    json.dumps(attachments or [], ensure_ascii=False, default=str),
                     now,
                 ),
             )
@@ -229,7 +233,7 @@ class ChatSessionStore:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
                 """
-                select message_id, session_id, role, content, reasoning_content, tool_calls_json, report_links_json, sources_json, citations_json, created_at
+                select message_id, session_id, role, content, reasoning_content, tool_calls_json, report_links_json, sources_json, citations_json, attachments_json, created_at
                 from chat_messages
                 where session_id=? and message_id>?
                 order by message_id asc
@@ -243,7 +247,7 @@ class ChatSessionStore:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
                 """
-                select message_id, session_id, role, content, reasoning_content, tool_calls_json, report_links_json, sources_json, citations_json, created_at
+                select message_id, session_id, role, content, reasoning_content, tool_calls_json, report_links_json, sources_json, citations_json, attachments_json, created_at
                 from chat_messages
                 where session_id=? and message_id>?
                 order by message_id asc
@@ -756,6 +760,7 @@ class ChatSessionStore:
                     report_links_json text not null default '[]',
                     sources_json text not null default '[]',
                     citations_json text not null default '[]',
+                    attachments_json text not null default '[]',
                     created_at text not null
                 );
                 create table if not exists agent_runs (
@@ -814,6 +819,7 @@ class ChatSessionStore:
             "reasoning_content": "alter table chat_messages add column reasoning_content text not null default ''",
             "sources_json": "alter table chat_messages add column sources_json text not null default '[]'",
             "citations_json": "alter table chat_messages add column citations_json text not null default '[]'",
+            "attachments_json": "alter table chat_messages add column attachments_json text not null default '[]'",
         }
         for name, sql in message_migrations.items():
             if name not in message_existing:
@@ -846,6 +852,7 @@ class ChatSessionStore:
             report_links=json.loads(row["report_links_json"] or "[]"),
             sources=json.loads(row["sources_json"] or "[]"),
             citations=json.loads(row["citations_json"] or "[]"),
+            attachments=json.loads(row["attachments_json"] or "[]"),
             created_at=row["created_at"],
         )
 

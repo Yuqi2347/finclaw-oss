@@ -300,6 +300,7 @@ def _apply_profile_without_confirmation(
         },
         caller="agent",
         reason=reason,
+        result="memory_applied",
     )
     return {
         "success": True,

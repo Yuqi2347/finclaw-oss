@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from backend.core.config import CAPABILITY_RUNTIME_DIR, DATA_DIR
+from backend.core.config import CAPABILITY_RUNTIME_DIR, DATA_DIR, RUNTIME_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class RuntimeMaintenanceService:
             ("audit_log", self._rotate_audit_log),
             ("memory", self._cleanup_memory),
             ("capabilities", self._cleanup_capability_artifacts),
+            ("attachments", self._cleanup_attachments),
         ):
             try:
                 summary[name] = handler()
@@ -179,6 +180,49 @@ class RuntimeMaintenanceService:
             "equityscope_cache": _delete_children_older_than(CAPABILITY_RUNTIME_DIR / "equityscope" / "cache", days=30),
             "themeradar_reports": self._keep_latest_report_dirs(CAPABILITY_RUNTIME_DIR / "themeradar" / "market_discovery", keep=3),
         }
+
+    def _cleanup_attachments(self) -> dict[str, int]:
+        attachment_db = DATA_DIR / "attachments.sqlite"
+        session_db = DATA_DIR / "sessions.sqlite"
+        if not attachment_db.exists():
+            return {"deleted_orphans": 0}
+        cutoff = _iso_days_ago(7)
+        referenced: set[str] = set()
+        if session_db.exists():
+            with _connect(session_db) as conn:
+                rows = conn.execute("select attachments_json from chat_messages where attachments_json != '[]'").fetchall()
+            for row in rows:
+                try:
+                    items = json.loads(row["attachments_json"] or "[]")
+                except Exception:
+                    continue
+                for item in items if isinstance(items, list) else []:
+                    if isinstance(item, dict) and item.get("attachment_id"):
+                        referenced.add(str(item["attachment_id"]))
+        deleted = 0
+        with _connect(attachment_db) as conn:
+            rows = conn.execute(
+                """
+                select attachment_id, storage_path, thumb_path
+                from attachments
+                where created_at < ?
+                """,
+                (cutoff,),
+            ).fetchall()
+            for row in rows:
+                attachment_id = str(row["attachment_id"])
+                if attachment_id in referenced:
+                    continue
+                for key in ("storage_path", "thumb_path"):
+                    rel = str(row[key] or "")
+                    if not rel:
+                        continue
+                    path = (RUNTIME_DIR / rel).resolve()
+                    if RUNTIME_DIR.resolve() in path.parents:
+                        path.unlink(missing_ok=True)
+                conn.execute("delete from attachments where attachment_id=?", (attachment_id,))
+                deleted += 1
+        return {"deleted_orphans": deleted}
 
     def _research_thread_statuses(self) -> dict[str, str]:
         db_path = DATA_DIR / "research_threads.sqlite"

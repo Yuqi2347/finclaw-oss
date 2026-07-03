@@ -476,6 +476,10 @@ class AnalysisJobStore:
         api_key = settings.llm_api_key
         if not api_key:
             return
+        # Capabilities use FinClaw's root LLM config as the source of truth.
+        # Populate common provider env vars as compatibility aliases because
+        # upstream capability code may still read provider-specific names.
+        env.setdefault("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY") or api_key)
         provider = os.getenv("FINCLAW_LLM_PROVIDER", "").strip().lower() or self._infer_llm_provider(settings.llm_base_url, settings.llm_model)
         provider_env_names = {
             "openai": ("OPENAI_API_KEY",),

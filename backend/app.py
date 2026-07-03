@@ -9,7 +9,7 @@ from datetime import datetime
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
@@ -22,6 +22,7 @@ from backend.core.streaming import sse_event
 from backend.core.tool_gateway import tool_gateway
 from backend.services.approval import approval_store
 from backend.services.analysis_jobs import analysis_job_store
+from backend.services.attachments import attachment_service
 from backend.services.cancellation import cancellation_store
 from backend.services.continuation import continuation_service
 from backend.services.audit import log_event
@@ -646,6 +647,7 @@ def rename_session(session_id: str, payload: SessionRenameRequest):
 def delete_session(session_id: str):
     try:
         result = chat_session_store.delete_session(session_id)
+        attachment_service.delete_session(session_id)
         approval_store.delete_by_session(session_id)
         trace_store.delete_by_session(session_id)
         return {"status": "deleted", **result}
@@ -658,9 +660,51 @@ def delete_session(session_id: str):
 @app.post("/api/chat/stream")
 def chat_stream(payload: ChatRequest):
     return StreamingResponse(
-        agent_loop.stream(payload.message, payload.session_id, mode=payload.mode),
+        agent_loop.stream(
+            payload.message,
+            payload.session_id,
+            mode=payload.mode,
+            attachments=[item.model_dump() for item in payload.attachments],
+            referenced_attachment_ids=payload.referenced_attachment_ids,
+        ),
         media_type="text/event-stream",
     )
+
+
+@app.post("/api/attachments")
+async def upload_attachment(session_id: str = Form("default"), file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+        return attachment_service.save_upload(
+            session_id=session_id,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            data=data,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/attachments/{attachment_id}")
+def get_attachment(attachment_id: str):
+    try:
+        path, mime_type = attachment_service.file_path(attachment_id, thumbnail=False)
+        return FileResponse(path, media_type=mime_type)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="attachment not found") from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="attachment file not found") from exc
+
+
+@app.get("/api/attachments/{attachment_id}/thumb")
+def get_attachment_thumb(attachment_id: str):
+    try:
+        path, mime_type = attachment_service.file_path(attachment_id, thumbnail=True)
+        return FileResponse(path, media_type=mime_type)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="attachment not found") from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="attachment thumbnail not found") from exc
 
 
 @app.get("/api/sessions/{session_id}/messages")
@@ -1387,7 +1431,12 @@ def confirm_action_stream(action_id: str, payload: ConfirmRequest):
         trace_id = trace_store.start_trace(action.session_id, action.run_id or action.action_id, "approval_denied", {"action_id": action_id})
         trace_store.event(trace_id, "approval.denied", {"action": action.model_dump()}, level="info")
         trace_store.finish_trace(trace_id)
-        chat_session_store.advance_approval_queue(action.session_id, action_id)
+        queue_after = chat_session_store.advance_approval_queue(action.session_id, action_id)
+        if queue_after.get("active_action_id"):
+            return StreamingResponse(
+                _approval_queue_waiting_stream(queue_after),
+                media_type="text/event-stream",
+            )
         return StreamingResponse(
             agent_loop.stream_after_denial(
                 action.tool_name,
@@ -1404,7 +1453,7 @@ def confirm_action_stream(action_id: str, payload: ConfirmRequest):
         trace_id = trace_store.start_trace(action.session_id, action.run_id or action.action_id, "approval_confirm_stream", {"action_id": action_id})
         executed = tool_gateway.execute_confirmed(action_id, trace_id=trace_id)
         trace_store.finish_trace(trace_id)
-        chat_session_store.advance_approval_queue(action.session_id, action_id)
+        queue_after = chat_session_store.advance_approval_queue(action.session_id, action_id)
     except ResourceLimitExceeded as exc:
         detail = str(exc)
         if trace_id:
@@ -1428,6 +1477,11 @@ def confirm_action_stream(action_id: str, payload: ConfirmRequest):
         if trace_id:
             trace_store.finish_trace(trace_id, status="failed", error=str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if queue_after.get("active_action_id"):
+        return StreamingResponse(
+            _approval_queue_waiting_stream(queue_after),
+            media_type="text/event-stream",
+        )
     return StreamingResponse(
         agent_loop.stream_after_approval(
             action.tool_name,
@@ -1436,4 +1490,15 @@ def confirm_action_stream(action_id: str, payload: ConfirmRequest):
             session_id=action.session_id,
         ),
         media_type="text/event-stream",
+    )
+
+
+def _approval_queue_waiting_stream(queue_state: dict[str, Any]):
+    yield sse_event(
+        "message_done",
+        {
+            "waiting_approval": True,
+            "active_action_id": queue_state.get("active_action_id"),
+            "queued_count": len(queue_state.get("queued_action_ids") or []),
+        },
     )

@@ -13,6 +13,7 @@ type Props = {
   activeMessageId: string | null;
   loading?: boolean;
   listKey: string;
+  onReferenceAttachment?: (message: ChatMessage, attachmentId: string) => void;
 };
 
 export const MessageList = memo(function MessageList({
@@ -23,6 +24,7 @@ export const MessageList = memo(function MessageList({
   activeMessageId,
   loading,
   listKey,
+  onReferenceAttachment,
 }: Props) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const initialPositioningRef = useRef(false);
@@ -106,7 +108,7 @@ export const MessageList = memo(function MessageList({
             {active && activeMessageId === message.id && (
               <AgentStatus active={active} status={status} />
             )}
-            <MessageBubble message={message} />
+            <MessageBubble message={message} onReferenceAttachment={onReferenceAttachment} />
           </div>
         </div>
       )}
@@ -115,7 +117,8 @@ export const MessageList = memo(function MessageList({
 });
 
 function hasVisibleMessage(message: ChatMessage): boolean {
-  if (message.role === "user") return message.content.trim().length > 0;
+  if (message.role === "user") return message.content.trim().length > 0 || Boolean(message.attachments?.length);
+  if (message.attachments?.length) return true;
   if (message.content.trim()) return true;
   if (message.sources?.length) return true;
   if (message.reportLinks?.length) return true;

@@ -400,7 +400,7 @@ class OpenAIStreamClient:
             return
 
     def _safe_payload_for_log(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return json.loads(json.dumps(payload, ensure_ascii=False, default=str))
+        return json.loads(json.dumps(_redact_image_payload(payload), ensure_ascii=False, default=str))
 
     def _merge_tool_call_deltas(self, tool_call_parts: dict[int, dict[str, Any]], deltas: list[dict[str, Any]]) -> None:
         for delta in deltas:
@@ -429,4 +429,19 @@ def _strip_reasoning_content(value: Any) -> Any:
         return {key: _strip_reasoning_content(item) for key, item in value.items() if key != "reasoning_content"}
     if isinstance(value, list):
         return [_strip_reasoning_content(item) for item in value]
+    return value
+
+
+def _redact_image_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, item in value.items():
+            if key == "url" and isinstance(item, str) and item.startswith("data:image/"):
+                media_type = item.split(";", 1)[0].replace("data:", "")
+                redacted[key] = f"[redacted {media_type} data_url]"
+            else:
+                redacted[key] = _redact_image_payload(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_image_payload(item) for item in value]
     return value
